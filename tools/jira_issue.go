@@ -24,6 +24,7 @@ type CreateIssueInput struct {
 	Summary     string `json:"summary" validate:"required"`
 	Description string `json:"description" validate:"required"`
 	IssueType   string `json:"issue_type" validate:"required"`
+	Assignee    string `json:"assignee,omitempty"`
 }
 
 type CreateChildIssueInput struct {
@@ -31,12 +32,14 @@ type CreateChildIssueInput struct {
 	Summary        string `json:"summary" validate:"required"`
 	Description    string `json:"description" validate:"required"`
 	IssueType      string `json:"issue_type,omitempty"`
+	Assignee       string `json:"assignee,omitempty"`
 }
 
 type UpdateIssueInput struct {
 	IssueKey    string `json:"issue_key" validate:"required"`
 	Summary     string `json:"summary,omitempty"`
 	Description string `json:"description,omitempty"`
+	Assignee    string `json:"assignee,omitempty"`
 }
 
 type ListIssueTypesInput struct {
@@ -58,6 +61,7 @@ func RegisterJiraIssueTool(s *server.MCPServer) {
 		mcp.WithString("summary", mcp.Required(), mcp.Description("Brief title or headline of the issue")),
 		mcp.WithString("description", mcp.Required(), mcp.Description("Detailed explanation of the issue")),
 		mcp.WithString("issue_type", mcp.Required(), mcp.Description("Type of issue to create (common types: Bug, Task, Subtask, Story, Epic)")),
+		mcp.WithString("assignee", mcp.Description("Username or email of the person to assign the issue to (optional)")),
 	)
 	s.AddTool(jiraCreateIssueTool, mcp.NewTypedToolHandler(jiraCreateIssueHandler))
 
@@ -67,6 +71,7 @@ func RegisterJiraIssueTool(s *server.MCPServer) {
 		mcp.WithString("summary", mcp.Required(), mcp.Description("Brief title or headline of the child issue")),
 		mcp.WithString("description", mcp.Required(), mcp.Description("Detailed explanation of the child issue")),
 		mcp.WithString("issue_type", mcp.Description("Type of child issue to create (defaults to 'Subtask' if not specified)")),
+		mcp.WithString("assignee", mcp.Description("Username or email of the person to assign the issue to (optional)")),
 	)
 	s.AddTool(jiraCreateChildIssueTool, mcp.NewTypedToolHandler(jiraCreateChildIssueHandler))
 
@@ -75,6 +80,7 @@ func RegisterJiraIssueTool(s *server.MCPServer) {
 		mcp.WithString("issue_key", mcp.Required(), mcp.Description("The unique identifier of the issue to update (e.g., KP-2)")),
 		mcp.WithString("summary", mcp.Description("New title for the issue (optional)")),
 		mcp.WithString("description", mcp.Description("New description for the issue (optional)")),
+		mcp.WithString("assignee", mcp.Description("Username or email of the person to assign the issue to (optional)")),
 	)
 	s.AddTool(jiraUpdateIssueTool, mcp.NewTypedToolHandler(jiraUpdateIssueHandler))
 
@@ -126,6 +132,13 @@ func jiraCreateIssueHandler(ctx context.Context, request mcp.CallToolRequest, in
 		},
 	}
 
+	// Add assignee if provided
+	if input.Assignee != "" {
+		payload.Fields.Assignee = &models.UserScheme{
+			Name: input.Assignee,
+		}
+	}
+
 	issue, response, err := client.Issue.Create(ctx, &payload, nil)
 	if err != nil {
 		if response != nil {
@@ -166,6 +179,13 @@ func jiraCreateChildIssueHandler(ctx context.Context, request mcp.CallToolReques
 		},
 	}
 
+	// Add assignee if provided
+	if input.Assignee != "" {
+		payload.Fields.Assignee = &models.UserScheme{
+			Name: input.Assignee,
+		}
+	}
+
 	issue, response, err := client.Issue.Create(ctx, &payload, nil)
 	if err != nil {
 		if response != nil {
@@ -196,6 +216,12 @@ func jiraUpdateIssueHandler(ctx context.Context, request mcp.CallToolRequest, in
 
 	if input.Description != "" {
 		payload.Fields.Description = input.Description
+	}
+
+	if input.Assignee != "" {
+		payload.Fields.Assignee = &models.UserScheme{
+			Name: input.Assignee,
+		}
 	}
 
 	response, err := client.Issue.Update(ctx, input.IssueKey, true, payload, nil, nil)
