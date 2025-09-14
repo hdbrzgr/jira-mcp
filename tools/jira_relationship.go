@@ -42,7 +42,7 @@ func RegisterJiraRelationshipTool(s *server.MCPServer) {
 
 func jiraRelationshipHandler(ctx context.Context, request mcp.CallToolRequest, input GetRelatedIssuesInput) (*mcp.CallToolResult, error) {
 	client := services.JiraClient()
-	
+
 	// Get the issue with the 'issuelinks' field
 	issue, response, err := client.Issue.Get(ctx, input.IssueKey, nil, []string{"issuelinks"})
 	if err != nil {
@@ -101,14 +101,13 @@ func jiraRelationshipHandler(ctx context.Context, request mcp.CallToolRequest, i
 	}
 
 	return mcp.NewToolResultText(sb.String()), nil
-} 
-
+}
 
 func jiraLinkHandler(ctx context.Context, request mcp.CallToolRequest, input LinkIssuesInput) (*mcp.CallToolResult, error) {
 	client := services.JiraClient()
 
 	// Create the link payload
-	payload := &models.LinkPayloadSchemeV3{
+	payload := &models.LinkPayloadSchemeV2{
 		InwardIssue: &models.LinkedIssueScheme{
 			Key: input.InwardIssue,
 		},
@@ -122,11 +121,8 @@ func jiraLinkHandler(ctx context.Context, request mcp.CallToolRequest, input Lin
 
 	// Add comment if provided
 	if input.Comment != "" {
-		payload.Comment = &models.CommentPayloadScheme{
-			Body: &models.CommentNodeScheme{
-				Type: "text",
-				Text: input.Comment,
-			},
+		payload.Comment = &models.CommentPayloadSchemeV2{
+			Body: input.Comment,
 		}
 	}
 
@@ -140,4 +136,4 @@ func jiraLinkHandler(ctx context.Context, request mcp.CallToolRequest, input Lin
 	}
 
 	return mcp.NewToolResultText(fmt.Sprintf("Successfully linked issues %s and %s with link type \"%s\"", input.InwardIssue, input.OutwardIssue, input.LinkType)), nil
-} 
+}

@@ -9,16 +9,16 @@ import (
 
 // FormatJiraIssue converts a Jira issue struct to a formatted string representation
 // It handles all available fields from IssueFieldsSchemeV2 and related schemas
-func FormatJiraIssue(issue *models.IssueScheme) string {
+func FormatJiraIssue(issue *models.IssueSchemeV2) string {
 	var sb strings.Builder
 
 	// Basic issue information
 	sb.WriteString(fmt.Sprintf("Key: %s\n", issue.Key))
-	
+
 	if issue.ID != "" {
 		sb.WriteString(fmt.Sprintf("ID: %s\n", issue.ID))
 	}
-	
+
 	if issue.Self != "" {
 		sb.WriteString(fmt.Sprintf("URL: %s\n", issue.Self))
 	}
@@ -32,7 +32,7 @@ func FormatJiraIssue(issue *models.IssueScheme) string {
 			sb.WriteString(fmt.Sprintf("Summary: %s\n", fields.Summary))
 		}
 
-		if fields.Description != nil {
+		if fields.Description != "" {
 			sb.WriteString(fmt.Sprintf("Description: %s\n", fields.Description))
 		}
 
@@ -272,36 +272,36 @@ func FormatJiraIssue(issue *models.IssueScheme) string {
 
 // FormatJiraIssueCompact returns a compact single-line representation of a Jira issue
 // Useful for search results or lists
-func FormatJiraIssueCompact(issue *models.IssueScheme) string {
+func FormatJiraIssueCompact(issue *models.IssueSchemeV2) string {
 	if issue == nil {
 		return ""
 	}
 
 	var parts []string
-	
+
 	parts = append(parts, fmt.Sprintf("Key: %s", issue.Key))
-	
+
 	if issue.Fields != nil {
 		fields := issue.Fields
-		
+
 		if fields.Summary != "" {
 			parts = append(parts, fmt.Sprintf("Summary: %s", fields.Summary))
 		}
-		
+
 		if fields.Status != nil {
 			parts = append(parts, fmt.Sprintf("Status: %s", fields.Status.Name))
 		}
-		
+
 		if fields.Assignee != nil {
 			parts = append(parts, fmt.Sprintf("Assignee: %s", fields.Assignee.DisplayName))
 		} else {
 			parts = append(parts, "Assignee: Unassigned")
 		}
-		
+
 		if fields.Priority != nil {
 			parts = append(parts, fmt.Sprintf("Priority: %s", fields.Priority.Name))
 		}
 	}
-	
+
 	return strings.Join(parts, " | ")
-} 
+}

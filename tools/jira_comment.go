@@ -38,11 +38,8 @@ func RegisterJiraCommentTools(s *server.MCPServer) {
 func jiraAddCommentHandler(ctx context.Context, request mcp.CallToolRequest, input AddCommentInput) (*mcp.CallToolResult, error) {
 	client := services.JiraClient()
 
-	commentPayload := &models.CommentPayloadScheme{
-		Body: &models.CommentNodeScheme{
-			Type: "text",
-			Text: input.Comment,
-		},
+	commentPayload := &models.CommentPayloadSchemeV2{
+		Body: input.Comment,
 	}
 
 	comment, response, err := client.Issue.Comment.Add(ctx, input.IssueKey, commentPayload, nil)

@@ -99,7 +99,7 @@ func jiraGetIssueHandler(ctx context.Context, request mcp.CallToolRequest, input
 	if input.Expand != "" {
 		expand = strings.Split(strings.ReplaceAll(input.Expand, " ", ""), ",")
 	}
-	
+
 	issue, response, err := client.Issue.Get(ctx, input.IssueKey, fields, expand)
 	if err != nil {
 		if response != nil {
@@ -117,18 +117,11 @@ func jiraGetIssueHandler(ctx context.Context, request mcp.CallToolRequest, input
 func jiraCreateIssueHandler(ctx context.Context, request mcp.CallToolRequest, input CreateIssueInput) (*mcp.CallToolResult, error) {
 	client := services.JiraClient()
 
-	var payload = models.IssueScheme{
-		Fields: &models.IssueFieldsScheme{
+	var payload = models.IssueSchemeV2{
+		Fields: &models.IssueFieldsSchemeV2{
 			Summary:     input.Summary,
 			Project:     &models.ProjectScheme{Key: input.ProjectKey},
-			Description: &models.CommentNodeScheme{
-				Content: []*models.CommentNodeScheme{
-					{
-						Type: "text",
-						Text: input.Description,
-					},
-				},
-			},
+			Description: input.Description,
 			IssueType:   &models.IssueTypeScheme{Name: input.IssueType},
 		},
 	}
@@ -163,14 +156,11 @@ func jiraCreateChildIssueHandler(ctx context.Context, request mcp.CallToolReques
 		issueType = input.IssueType
 	}
 
-	var payload = models.IssueScheme{
-		Fields: &models.IssueFieldsScheme{
+	var payload = models.IssueSchemeV2{
+		Fields: &models.IssueFieldsSchemeV2{
 			Summary:     input.Summary,
 			Project:     &models.ProjectScheme{Key: parentIssue.Fields.Project.Key},
-			Description: &models.CommentNodeScheme{
-				Type: "text",
-				Text: input.Description,
-			},
+			Description: input.Description,
 			IssueType:   &models.IssueTypeScheme{Name: issueType},
 			Parent:      &models.ParentScheme{Key: input.ParentIssueKey},
 		},
@@ -184,7 +174,7 @@ func jiraCreateChildIssueHandler(ctx context.Context, request mcp.CallToolReques
 		return nil, fmt.Errorf("failed to create child issue: %v", err)
 	}
 
-	result := fmt.Sprintf("Child issue created successfully!\nKey: %s\nID: %s\nURL: %s\nParent: %s", 
+	result := fmt.Sprintf("Child issue created successfully!\nKey: %s\nID: %s\nURL: %s\nParent: %s",
 		issue.Key, issue.ID, issue.Self, input.ParentIssueKey)
 
 	if issueType == "Bug" {
@@ -196,8 +186,8 @@ func jiraCreateChildIssueHandler(ctx context.Context, request mcp.CallToolReques
 func jiraUpdateIssueHandler(ctx context.Context, request mcp.CallToolRequest, input UpdateIssueInput) (*mcp.CallToolResult, error) {
 	client := services.JiraClient()
 
-	payload := &models.IssueScheme{
-		Fields: &models.IssueFieldsScheme{},
+	payload := &models.IssueSchemeV2{
+		Fields: &models.IssueFieldsSchemeV2{},
 	}
 
 	if input.Summary != "" {
@@ -205,10 +195,7 @@ func jiraUpdateIssueHandler(ctx context.Context, request mcp.CallToolRequest, in
 	}
 
 	if input.Description != "" {
-		payload.Fields.Description = &models.CommentNodeScheme{
-			Type: "text",
-			Text: input.Description,
-		}
+		payload.Fields.Description = input.Description
 	}
 
 	response, err := client.Issue.Update(ctx, input.IssueKey, true, payload, nil, nil)
@@ -245,7 +232,7 @@ func jiraListIssueTypesHandler(ctx context.Context, request mcp.CallToolRequest,
 		if issueType.Subtask {
 			subtaskType = " (Subtask Type)"
 		}
-		
+
 		result.WriteString(fmt.Sprintf("ID: %s\nName: %s%s\n", issueType.ID, issueType.Name, subtaskType))
 		if issueType.Description != "" {
 			result.WriteString(fmt.Sprintf("Description: %s\n", issueType.Description))

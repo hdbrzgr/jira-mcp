@@ -30,10 +30,10 @@ func RegisterJiraTransitionTool(s *server.MCPServer) {
 func jiraTransitionIssueHandler(ctx context.Context, request mcp.CallToolRequest, input TransitionIssueInput) (*mcp.CallToolResult, error) {
 	client := services.JiraClient()
 
-	var options *models.IssueMoveOptionsV3
+	var options *models.IssueMoveOptionsV2
 	if input.Comment != "" {
-		options = &models.IssueMoveOptionsV3{
-			Fields: &models.IssueScheme{},
+		options = &models.IssueMoveOptionsV2{
+			Fields: &models.IssueSchemeV2{},
 		}
 	}
 

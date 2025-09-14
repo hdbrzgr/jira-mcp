@@ -55,16 +55,18 @@ While Atlassian provides an official MCP connector, our implementation offers **
 ### Prerequisites
 
 Before you begin, you'll need:
-1. **Atlassian Account** with access to a Jira instance
-2. **API Token** from Atlassian (we'll help you get this)
+1. **Local Jira 10.3.2** instance running and accessible
+2. **Personal Access Token (PAT)** from your local Jira instance
 3. **Cursor IDE** with Claude integration
 
-### Step 1: Get Your Atlassian API Token
+### Step 1: Get Your Personal Access Token (PAT)
 
-1. Go to [Atlassian API Tokens](https://id.atlassian.com/manage-profile/security/api-tokens)
-2. Click **"Create API token"**
-3. Give it a name like "Jira MCP Connector"
-4. **Copy the token** (you won't see it again!)
+1. **Log into your local Jira 10.3.2** instance
+2. **Go to Settings** → **Personal Access Tokens** (or navigate to `/secure/ViewProfile.jspa?selectedTab=com.atlassian.pat.jira:personal-access-tokens`)
+3. Click **"Create token"**
+4. Give it a name like "Jira MCP Connector"
+5. **Select appropriate permissions** (at minimum: Browse Projects, Create Issues, Edit Issues, Add Comments)
+6. **Copy the token** (you won't see it again!)
 
 ### Step 2: Choose Your Installation Method
 
@@ -76,11 +78,10 @@ We recommend **Docker** for the easiest setup:
 # Pull the latest image
 docker pull ghcr.io/nguyenvanduocit/jira-mcp:latest
 
-# Test it works (replace with your details)
+# Test it works (replace with your local Jira details)
 docker run --rm \
-  -e ATLASSIAN_HOST=https://your-company.atlassian.net \
-  -e ATLASSIAN_EMAIL=your-email@company.com \
-  -e ATLASSIAN_TOKEN=your-api-token \
+  -e JIRA_HOST=http://localhost:8080 \
+  -e JIRA_PAT=your-personal-access-token \
   ghcr.io/nguyenvanduocit/jira-mcp:latest \
   --http_port 3000
 ```
@@ -118,9 +119,8 @@ go install github.com/nguyenvanduocit/jira-mcp@latest
       "command": "docker",
       "args": [
         "run", "--rm", "-i",
-        "-e", "ATLASSIAN_HOST=https://your-company.atlassian.net",
-        "-e", "ATLASSIAN_EMAIL=your-email@company.com", 
-        "-e", "ATLASSIAN_TOKEN=your-api-token",
+        "-e", "JIRA_HOST=http://localhost:8080",
+        "-e", "JIRA_PAT=your-personal-access-token",
         "ghcr.io/nguyenvanduocit/jira-mcp:latest"
       ]
     }
@@ -135,9 +135,8 @@ go install github.com/nguyenvanduocit/jira-mcp@latest
     "jira": {
       "command": "/usr/local/bin/jira-mcp",
       "env": {
-        "ATLASSIAN_HOST": "https://your-company.atlassian.net",
-        "ATLASSIAN_EMAIL": "your-email@company.com",
-        "ATLASSIAN_TOKEN": "your-api-token"
+        "JIRA_HOST": "http://localhost:8080",
+        "JIRA_PAT": "your-personal-access-token"
       }
     }
   }
@@ -172,9 +171,8 @@ Create a `.env` file for easier management:
 
 ```bash
 # .env file
-ATLASSIAN_HOST=https://your-company.atlassian.net
-ATLASSIAN_EMAIL=your-email@company.com
-ATLASSIAN_TOKEN=your-api-token
+JIRA_HOST=http://localhost:8080
+JIRA_PAT=your-personal-access-token
 ```
 
 Then use it:
@@ -231,9 +229,9 @@ Once configured, you can ask Claude to help with Jira tasks using natural langua
 ### Common Issues
 
 **❌ "Connection failed" or "Authentication error"**
-- Double-check your `ATLASSIAN_HOST` (should be like `company.atlassian.net`)
-- Verify your API token is correct
-- Make sure your email matches your Atlassian account
+- Double-check your `JIRA_HOST` (should be like `http://localhost:8080` for local Jira)
+- Verify your Personal Access Token (PAT) is correct
+- Make sure your PAT has the necessary permissions in Jira
 
 **❌ "No MCP servers found"**
 - Restart Cursor completely after adding the configuration
@@ -241,8 +239,8 @@ Once configured, you can ask Claude to help with Jira tasks using natural langua
 - Verify the binary path is correct (for binary installations)
 
 **❌ "Permission denied" errors**
-- Make sure your Atlassian account has access to the Jira projects
-- Check if your API token has the necessary permissions
+- Make sure your Jira user account has access to the projects
+- Check if your Personal Access Token has the necessary permissions
 
 ### Getting Help
 

@@ -34,7 +34,7 @@ func RegisterJiraWorklogTool(s *server.MCPServer) {
 func jiraAddWorklogHandler(ctx context.Context, request mcp.CallToolRequest, input AddWorklogInput) (*mcp.CallToolResult, error) {
 	client := services.JiraClient()
 
-	// Convert timeSpent to seconds (this is a simplification - in a real implementation 
+	// Convert timeSpent to seconds (this is a simplification - in a real implementation
 	// you would need to parse formats like "1h 30m" properly)
 	timeSpentSeconds, err := parseTimeSpent(input.TimeSpent)
 	if err != nil {
@@ -55,16 +55,15 @@ func jiraAddWorklogHandler(ctx context.Context, request mcp.CallToolRequest, inp
 		AdjustEstimate: "auto",
 	}
 
-	payload := &models.WorklogADFPayloadScheme{
+	payload := &models.WorklogRichTextPayloadScheme{
 		TimeSpentSeconds: timeSpentSeconds,
 		Started:          started,
 	}
 
 	// Add comment if provided
 	if input.Comment != "" {
-		payload.Comment = &models.CommentNodeScheme{
-			Type: "text",
-			Text: input.Comment,
+		payload.Comment = &models.CommentPayloadSchemeV2{
+			Body: input.Comment,
 		}
 	}
 
@@ -98,7 +97,7 @@ Author: %s`,
 func parseTimeSpent(timeSpent string) (int, error) {
 	// This is a simplified version - a real implementation would be more robust
 	// For this example, we'll just handle hours (h) and minutes (m)
-	
+
 	// Simple case: if it's just a number, treat it as seconds
 	seconds, err := strconv.Atoi(timeSpent)
 	if err == nil {
@@ -113,4 +112,4 @@ func parseTimeSpent(timeSpent string) (int, error) {
 
 	// If all else fails, return an error
 	return 0, fmt.Errorf("could not parse time: %s", timeSpent)
-} 
+}

@@ -29,7 +29,7 @@ func main() {
 	}
 
 	// Check required environment variables
-	requiredEnvs := []string{"ATLASSIAN_HOST", "ATLASSIAN_EMAIL", "ATLASSIAN_TOKEN"}
+	requiredEnvs := []string{"JIRA_HOST", "JIRA_PAT"}
 	missingEnvs := []string{}
 	for _, env := range requiredEnvs {
 		if os.Getenv(env) == "" {
@@ -46,31 +46,30 @@ func main() {
 		}
 		fmt.Println()
 		fmt.Println("📋 Setup Instructions:")
-		fmt.Println("1. Get your Atlassian API token from: https://id.atlassian.com/manage-profile/security/api-tokens")
+		fmt.Println("1. Get your Personal Access Token (PAT) from your local Jira 10.3.2 instance")
+		fmt.Println("   - Go to Jira > Settings > Personal Access Tokens")
+		fmt.Println("   - Create a new token with appropriate permissions")
 		fmt.Println("2. Set the environment variables:")
 		fmt.Println()
 		fmt.Println("   Option A - Using .env file:")
 		fmt.Println("   Create a .env file with:")
-               fmt.Println("   ATLASSIAN_HOST=https://your-domain.atlassian.net")
-		fmt.Println("   ATLASSIAN_EMAIL=your-email@example.com")
-		fmt.Println("   ATLASSIAN_TOKEN=your-api-token")
+		fmt.Println("   JIRA_HOST=http://localhost:8080")
+		fmt.Println("   JIRA_PAT=your-personal-access-token")
 		fmt.Println()
 		fmt.Println("   Option B - Using environment variables:")
-               fmt.Println("   export ATLASSIAN_HOST=https://your-domain.atlassian.net")
-		fmt.Println("   export ATLASSIAN_EMAIL=your-email@example.com")
-		fmt.Println("   export ATLASSIAN_TOKEN=your-api-token")
+		fmt.Println("   export JIRA_HOST=http://localhost:8080")
+		fmt.Println("   export JIRA_PAT=your-personal-access-token")
 		fmt.Println()
 		fmt.Println("   Option C - Using Docker:")
-               fmt.Printf("   docker run -e ATLASSIAN_HOST=https://your-domain.atlassian.net \\\n")
-		fmt.Printf("              -e ATLASSIAN_EMAIL=your-email@example.com \\\n")
-		fmt.Printf("              -e ATLASSIAN_TOKEN=your-api-token \\\n")
+		fmt.Printf("   docker run -e JIRA_HOST=http://localhost:8080 \\\n")
+		fmt.Printf("              -e JIRA_PAT=your-personal-access-token \\\n")
 		fmt.Printf("              ghcr.io/nguyenvanduocit/jira-mcp:latest\n")
 		fmt.Println()
 		os.Exit(1)
 	}
 
 	fmt.Println("✅ All required environment variables are set")
-	fmt.Printf("🔗 Connected to: %s\n", os.Getenv("ATLASSIAN_HOST"))
+	fmt.Printf("🔗 Connected to: %s\n", os.Getenv("JIRA_HOST"))
 
 	mcpServer := server.NewMCPServer(
 		"Jira MCP",
@@ -116,7 +115,7 @@ func main() {
 		fmt.Println("- Use '@jira' in Cursor to reference Jira-related context")
 		fmt.Println()
 		fmt.Println("🔄 Server starting...")
-		
+
 		httpServer := server.NewStreamableHTTPServer(mcpServer, server.WithEndpointPath("/mcp"))
 		if err := httpServer.Start(fmt.Sprintf(":%s", *httpPort)); err != nil && !isContextCanceled(err) {
 			log.Fatalf("❌ Server error: %v", err)
@@ -133,15 +132,15 @@ func isContextCanceled(err error) bool {
 	if err == nil {
 		return false
 	}
-	
+
 	// Check if it's directly context.Canceled
 	if errors.Is(err, context.Canceled) {
 		return true
 	}
-	
+
 	// Check if the error message contains context canceled
 	errMsg := strings.ToLower(err.Error())
-	return strings.Contains(errMsg, "context canceled") || 
-	       strings.Contains(errMsg, "operation was canceled") ||
-	       strings.Contains(errMsg, "context deadline exceeded")
+	return strings.Contains(errMsg, "context canceled") ||
+		strings.Contains(errMsg, "operation was canceled") ||
+		strings.Contains(errMsg, "context deadline exceeded")
 }
