@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/hdbrzgr/jira-mcp/tools"
+	"github.com/hdbrzgr/jira-mcp/v2/tools"
 	"github.com/joho/godotenv"
 	"github.com/mark3labs/mcp-go/server"
 )

@@ -1,4 +1,4 @@
-module github.com/hdbrzgr/jira-mcp
+module github.com/hdbrzgr/jira-mcp/v2
 
 go 1.23.2
 

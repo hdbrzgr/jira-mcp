@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/andygrunwald/go-jira"
-	"github.com/hdbrzgr/jira-mcp/services"
-	"github.com/hdbrzgr/jira-mcp/util"
+	"github.com/hdbrzgr/jira-mcp/v2/services"
+	"github.com/hdbrzgr/jira-mcp/v2/util"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 )
