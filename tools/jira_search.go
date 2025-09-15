@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/andygrunwald/go-jira"
-	"github.com/mark3labs/mcp-go/mcp"
-	"github.com/mark3labs/mcp-go/server"
 	"github.com/hdbrzgr/jira-mcp/v2/services"
 	"github.com/hdbrzgr/jira-mcp/v2/util"
+	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/mark3labs/mcp-go/server"
 )
 
 // Input types for typed tools
