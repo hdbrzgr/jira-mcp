@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hdbrzgr/jira-mcp/services"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/nguyenvanduocit/jira-mcp/services"
 )
 
 // Input types for typed tools

@@ -9,9 +9,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/hdbrzgr/jira-mcp/tools"
 	"github.com/joho/godotenv"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/nguyenvanduocit/jira-mcp/tools"
 )
 
 func main() {
