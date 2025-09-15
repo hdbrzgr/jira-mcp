@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ctreminiom/go-atlassian/pkg/infra/models"
+	"github.com/andygrunwald/go-jira"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/nguyenvanduocit/jira-mcp/services"
@@ -94,23 +94,17 @@ func RegisterJiraIssueTool(s *server.MCPServer) {
 func jiraGetIssueHandler(ctx context.Context, request mcp.CallToolRequest, input GetIssueInput) (*mcp.CallToolResult, error) {
 	client := services.JiraClient()
 
-	// Parse fields parameter
-	var fields []string
-	if input.Fields != "" {
-		fields = strings.Split(strings.ReplaceAll(input.Fields, " ", ""), ",")
-	}
-
 	// Parse expand parameter with default values
-	expand := []string{"transitions", "changelog", "subtasks", "description"}
+	expand := "transitions,changelog,subtasks"
 	if input.Expand != "" {
-		expand = strings.Split(strings.ReplaceAll(input.Expand, " ", ""), ",")
+		expand = input.Expand
 	}
 
-	issue, response, err := client.Issue.Get(ctx, input.IssueKey, fields, expand)
+	issue, _, err := client.Issue.GetWithContext(ctx, input.IssueKey, &jira.GetQueryOptions{
+		Expand: expand,
+		Fields: input.Fields,
+	})
 	if err != nil {
-		if response != nil {
-			return nil, fmt.Errorf("failed to get issue: %s (endpoint: %s)", response.Bytes.String(), response.Endpoint)
-		}
 		return nil, fmt.Errorf("failed to get issue: %v", err)
 	}
 
@@ -123,31 +117,32 @@ func jiraGetIssueHandler(ctx context.Context, request mcp.CallToolRequest, input
 func jiraCreateIssueHandler(ctx context.Context, request mcp.CallToolRequest, input CreateIssueInput) (*mcp.CallToolResult, error) {
 	client := services.JiraClient()
 
-	var payload = models.IssueSchemeV2{
-		Fields: &models.IssueFieldsSchemeV2{
+	issue := &jira.Issue{
+		Fields: &jira.IssueFields{
 			Summary:     input.Summary,
-			Project:     &models.ProjectScheme{Key: input.ProjectKey},
 			Description: input.Description,
-			IssueType:   &models.IssueTypeScheme{Name: input.IssueType},
+			Project: jira.Project{
+				Key: input.ProjectKey,
+			},
+			Type: jira.IssueType{
+				Name: input.IssueType,
+			},
 		},
 	}
 
 	// Add assignee if provided
 	if input.Assignee != "" {
-		payload.Fields.Assignee = &models.UserScheme{
+		issue.Fields.Assignee = &jira.User{
 			Name: input.Assignee,
 		}
 	}
 
-	issue, response, err := client.Issue.Create(ctx, &payload, nil)
+	createdIssue, _, err := client.Issue.CreateWithContext(ctx, issue)
 	if err != nil {
-		if response != nil {
-			return nil, fmt.Errorf("failed to create issue: %s (endpoint: %s)", response.Bytes.String(), response.Endpoint)
-		}
 		return nil, fmt.Errorf("failed to create issue: %v", err)
 	}
 
-	result := fmt.Sprintf("Issue created successfully!\nKey: %s\nID: %s\nURL: %s", issue.Key, issue.ID, issue.Self)
+	result := fmt.Sprintf("Issue created successfully!\nKey: %s\nID: %s\nURL: %s", createdIssue.Key, createdIssue.ID, createdIssue.Self)
 	return mcp.NewToolResultText(result), nil
 }
 
@@ -155,11 +150,8 @@ func jiraCreateChildIssueHandler(ctx context.Context, request mcp.CallToolReques
 	client := services.JiraClient()
 
 	// Get the parent issue to retrieve its project
-	parentIssue, response, err := client.Issue.Get(ctx, input.ParentIssueKey, nil, nil)
+	parentIssue, _, err := client.Issue.GetWithContext(ctx, input.ParentIssueKey, nil)
 	if err != nil {
-		if response != nil {
-			return nil, fmt.Errorf("failed to get parent issue: %s (endpoint: %s)", response.Bytes.String(), response.Endpoint)
-		}
 		return nil, fmt.Errorf("failed to get parent issue: %v", err)
 	}
 
@@ -169,33 +161,36 @@ func jiraCreateChildIssueHandler(ctx context.Context, request mcp.CallToolReques
 		issueType = input.IssueType
 	}
 
-	var payload = models.IssueSchemeV2{
-		Fields: &models.IssueFieldsSchemeV2{
+	issue := &jira.Issue{
+		Fields: &jira.IssueFields{
 			Summary:     input.Summary,
-			Project:     &models.ProjectScheme{Key: parentIssue.Fields.Project.Key},
 			Description: input.Description,
-			IssueType:   &models.IssueTypeScheme{Name: issueType},
-			Parent:      &models.ParentScheme{Key: input.ParentIssueKey},
+			Project: jira.Project{
+				Key: parentIssue.Fields.Project.Key,
+			},
+			Type: jira.IssueType{
+				Name: issueType,
+			},
+			Parent: &jira.Parent{
+				Key: input.ParentIssueKey,
+			},
 		},
 	}
 
 	// Add assignee if provided
 	if input.Assignee != "" {
-		payload.Fields.Assignee = &models.UserScheme{
+		issue.Fields.Assignee = &jira.User{
 			Name: input.Assignee,
 		}
 	}
 
-	issue, response, err := client.Issue.Create(ctx, &payload, nil)
+	createdIssue, _, err := client.Issue.CreateWithContext(ctx, issue)
 	if err != nil {
-		if response != nil {
-			return nil, fmt.Errorf("failed to create child issue: %s (endpoint: %s)", response.Bytes.String(), response.Endpoint)
-		}
 		return nil, fmt.Errorf("failed to create child issue: %v", err)
 	}
 
 	result := fmt.Sprintf("Child issue created successfully!\nKey: %s\nID: %s\nURL: %s\nParent: %s",
-		issue.Key, issue.ID, issue.Self, input.ParentIssueKey)
+		createdIssue.Key, createdIssue.ID, createdIssue.Self, input.ParentIssueKey)
 
 	if issueType == "Bug" {
 		result += "\n\nA bug should be linked to a Story or Task. Next step should be to create relationship between the bug and the story or task."
@@ -206,29 +201,27 @@ func jiraCreateChildIssueHandler(ctx context.Context, request mcp.CallToolReques
 func jiraUpdateIssueHandler(ctx context.Context, request mcp.CallToolRequest, input UpdateIssueInput) (*mcp.CallToolResult, error) {
 	client := services.JiraClient()
 
-	payload := &models.IssueSchemeV2{
-		Fields: &models.IssueFieldsSchemeV2{},
+	issue := &jira.Issue{
+		Key:    input.IssueKey,
+		Fields: &jira.IssueFields{},
 	}
 
 	if input.Summary != "" {
-		payload.Fields.Summary = input.Summary
+		issue.Fields.Summary = input.Summary
 	}
 
 	if input.Description != "" {
-		payload.Fields.Description = input.Description
+		issue.Fields.Description = input.Description
 	}
 
 	if input.Assignee != "" {
-		payload.Fields.Assignee = &models.UserScheme{
+		issue.Fields.Assignee = &jira.User{
 			Name: input.Assignee,
 		}
 	}
 
-	response, err := client.Issue.Update(ctx, input.IssueKey, true, payload, nil, nil)
+	_, _, err := client.Issue.UpdateWithContext(ctx, issue)
 	if err != nil {
-		if response != nil {
-			return nil, fmt.Errorf("failed to update issue: %s (endpoint: %s)", response.Bytes.String(), response.Endpoint)
-		}
 		return nil, fmt.Errorf("failed to update issue: %v", err)
 	}
 
@@ -238,11 +231,14 @@ func jiraUpdateIssueHandler(ctx context.Context, request mcp.CallToolRequest, in
 func jiraListIssueTypesHandler(ctx context.Context, request mcp.CallToolRequest, input ListIssueTypesInput) (*mcp.CallToolResult, error) {
 	client := services.JiraClient()
 
-	issueTypes, response, err := client.Issue.Type.Gets(ctx)
+	req, err := client.NewRequest("GET", "rest/api/2/issuetype", nil)
 	if err != nil {
-		if response != nil {
-			return nil, fmt.Errorf("failed to get issue types: %s (endpoint: %s)", response.Bytes.String(), response.Endpoint)
-		}
+		return nil, fmt.Errorf("failed to create request: %v", err)
+	}
+
+	var issueTypes []jira.IssueType
+	_, err = client.Do(req, &issueTypes)
+	if err != nil {
 		return nil, fmt.Errorf("failed to get issue types: %v", err)
 	}
 
@@ -265,9 +261,6 @@ func jiraListIssueTypesHandler(ctx context.Context, request mcp.CallToolRequest,
 		}
 		if issueType.IconURL != "" {
 			result.WriteString(fmt.Sprintf("Icon URL: %s\n", issueType.IconURL))
-		}
-		if issueType.Scope != nil {
-			result.WriteString(fmt.Sprintf("Scope: %s\n", issueType.Scope.Type))
 		}
 		result.WriteString("\n")
 	}

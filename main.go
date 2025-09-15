@@ -80,16 +80,17 @@ func main() {
 		server.WithRecovery(),
 	)
 
-	// Register all Jira tools
+	// Register available Jira tools
 	tools.RegisterJiraIssueTool(mcpServer)
 	tools.RegisterJiraSearchTool(mcpServer)
-	tools.RegisterJiraSprintTool(mcpServer)
-	tools.RegisterJiraStatusTool(mcpServer)
 	tools.RegisterJiraTransitionTool(mcpServer)
-	tools.RegisterJiraWorklogTool(mcpServer)
 	tools.RegisterJiraCommentTools(mcpServer)
-	tools.RegisterJiraHistoryTool(mcpServer)
-	tools.RegisterJiraRelationshipTool(mcpServer)
+	tools.RegisterJiraSprintTool(mcpServer) // Disabled - returns empty registration
+	// Temporarily disabled during migration to andygrunwald/go-jira:
+	// tools.RegisterJiraStatusTool(mcpServer)
+	// tools.RegisterJiraWorklogTool(mcpServer)
+	// tools.RegisterJiraHistoryTool(mcpServer)
+	// tools.RegisterJiraRelationshipTool(mcpServer)
 
 	if *httpPort != "" {
 		fmt.Println()

@@ -3,8 +3,9 @@ package tools
 import (
 	"context"
 	"fmt"
+	"strings"
 
-	"github.com/ctreminiom/go-atlassian/pkg/infra/models"
+	"github.com/andygrunwald/go-jira"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/nguyenvanduocit/jira-mcp/services"
@@ -38,22 +39,19 @@ func RegisterJiraCommentTools(s *server.MCPServer) {
 func jiraAddCommentHandler(ctx context.Context, request mcp.CallToolRequest, input AddCommentInput) (*mcp.CallToolResult, error) {
 	client := services.JiraClient()
 
-	commentPayload := &models.CommentPayloadSchemeV2{
+	comment := &jira.Comment{
 		Body: input.Comment,
 	}
 
-	comment, response, err := client.Issue.Comment.Add(ctx, input.IssueKey, commentPayload, nil)
+	createdComment, _, err := client.Issue.AddCommentWithContext(ctx, input.IssueKey, comment)
 	if err != nil {
-		if response != nil {
-			return nil, fmt.Errorf("failed to add comment: %s (endpoint: %s)", response.Bytes.String(), response.Endpoint)
-		}
 		return nil, fmt.Errorf("failed to add comment: %v", err)
 	}
 
 	result := fmt.Sprintf("Comment added successfully!\nID: %s\nAuthor: %s\nCreated: %s",
-		comment.ID,
-		comment.Author.DisplayName,
-		comment.Created)
+		createdComment.ID,
+		createdComment.Author.DisplayName,
+		createdComment.Created)
 
 	return mcp.NewToolResultText(result), nil
 }
@@ -61,34 +59,38 @@ func jiraAddCommentHandler(ctx context.Context, request mcp.CallToolRequest, inp
 func jiraGetCommentsHandler(ctx context.Context, request mcp.CallToolRequest, input GetCommentsInput) (*mcp.CallToolResult, error) {
 	client := services.JiraClient()
 
-	// Retrieve up to 50 comments starting from the first one.
-	// Passing 0 for maxResults results in Jira returning only the first comment.
-	comments, response, err := client.Issue.Comment.Gets(ctx, input.IssueKey, "", nil, 0, 50)
+	// Get comments for the issue - use custom request since GetCommentsWithContext may not exist
+	req, err := client.NewRequest("GET", fmt.Sprintf("rest/api/2/issue/%s/comment", input.IssueKey), nil)
 	if err != nil {
-		if response != nil {
-			return nil, fmt.Errorf("failed to get comments: %s (endpoint: %s)", response.Bytes.String(), response.Endpoint)
-		}
+		return nil, fmt.Errorf("failed to create request: %v", err)
+	}
+
+	var commentsResponse struct {
+		Comments []jira.Comment `json:"comments"`
+	}
+	_, err = client.Do(req, &commentsResponse)
+	if err != nil {
 		return nil, fmt.Errorf("failed to get comments: %v", err)
 	}
 
-	if len(comments.Comments) == 0 {
+	if len(commentsResponse.Comments) == 0 {
 		return mcp.NewToolResultText("No comments found for this issue."), nil
 	}
 
-	var result string
-	for _, comment := range comments.Comments {
+	var result strings.Builder
+	for _, comment := range commentsResponse.Comments {
 		authorName := "Unknown"
-		if comment.Author != nil {
+		if comment.Author.DisplayName != "" {
 			authorName = comment.Author.DisplayName
 		}
 
-		result += fmt.Sprintf("ID: %s\nAuthor: %s\nCreated: %s\nUpdated: %s\nBody: %s\n\n",
+		result.WriteString(fmt.Sprintf("ID: %s\nAuthor: %s\nCreated: %s\nUpdated: %s\nBody: %s\n\n",
 			comment.ID,
 			authorName,
 			comment.Created,
 			comment.Updated,
-			comment.Body)
+			comment.Body))
 	}
 
-	return mcp.NewToolResultText(result), nil
+	return mcp.NewToolResultText(result.String()), nil
 }

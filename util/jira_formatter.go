@@ -3,13 +3,14 @@ package util
 import (
 	"fmt"
 	"strings"
+	"time"
 
-	"github.com/ctreminiom/go-atlassian/pkg/infra/models"
+	"github.com/andygrunwald/go-jira"
 )
 
 // FormatJiraIssue converts a Jira issue struct to a formatted string representation
-// It handles all available fields from IssueFieldsSchemeV2 and related schemas
-func FormatJiraIssue(issue *models.IssueSchemeV2) string {
+// It handles the andygrunwald/go-jira Issue structure
+func FormatJiraIssue(issue *jira.Issue) string {
 	var sb strings.Builder
 
 	// Basic issue information
@@ -37,15 +38,15 @@ func FormatJiraIssue(issue *models.IssueSchemeV2) string {
 		}
 
 		// Issue Type
-		if fields.IssueType != nil {
-			sb.WriteString(fmt.Sprintf("Type: %s\n", fields.IssueType.Name))
-			if fields.IssueType.Description != "" {
-				sb.WriteString(fmt.Sprintf("Type Description: %s\n", fields.IssueType.Description))
+		if fields.Type.Name != "" {
+			sb.WriteString(fmt.Sprintf("Type: %s\n", fields.Type.Name))
+			if fields.Type.Description != "" {
+				sb.WriteString(fmt.Sprintf("Type Description: %s\n", fields.Type.Description))
 			}
 		}
 
 		// Status
-		if fields.Status != nil {
+		if fields.Status != nil && fields.Status.Name != "" {
 			sb.WriteString(fmt.Sprintf("Status: %s\n", fields.Status.Name))
 			if fields.Status.Description != "" {
 				sb.WriteString(fmt.Sprintf("Status Description: %s\n", fields.Status.Description))
@@ -53,23 +54,18 @@ func FormatJiraIssue(issue *models.IssueSchemeV2) string {
 		}
 
 		// Priority
-		if fields.Priority != nil {
+		if fields.Priority != nil && fields.Priority.Name != "" {
 			sb.WriteString(fmt.Sprintf("Priority: %s\n", fields.Priority.Name))
 		} else {
 			sb.WriteString("Priority: None\n")
 		}
 
 		// Resolution
-		if fields.Resolution != nil {
+		if fields.Resolution != nil && fields.Resolution.Name != "" {
 			sb.WriteString(fmt.Sprintf("Resolution: %s\n", fields.Resolution.Name))
 			if fields.Resolution.Description != "" {
 				sb.WriteString(fmt.Sprintf("Resolution Description: %s\n", fields.Resolution.Description))
 			}
-		}
-
-		// Resolution Date
-		if fields.Resolutiondate != "" {
-			sb.WriteString(fmt.Sprintf("Resolution Date: %s\n", fields.Resolutiondate))
 		}
 
 		// People
@@ -101,25 +97,17 @@ func FormatJiraIssue(issue *models.IssueSchemeV2) string {
 			sb.WriteString("\n")
 		}
 
-		// Dates
-		if fields.Created != "" {
-			sb.WriteString(fmt.Sprintf("Created: %s\n", fields.Created))
+		// Dates - convert jira.Time to time.Time to check if zero
+		if !time.Time(fields.Created).IsZero() {
+			sb.WriteString(fmt.Sprintf("Created: %s\n", time.Time(fields.Created).Format("2006-01-02 15:04:05")))
 		}
 
-		if fields.Updated != "" {
-			sb.WriteString(fmt.Sprintf("Updated: %s\n", fields.Updated))
-		}
-
-		if fields.LastViewed != "" {
-			sb.WriteString(fmt.Sprintf("Last Viewed: %s\n", fields.LastViewed))
-		}
-
-		if fields.StatusCategoryChangeDate != "" {
-			sb.WriteString(fmt.Sprintf("Status Category Change Date: %s\n", fields.StatusCategoryChangeDate))
+		if !time.Time(fields.Updated).IsZero() {
+			sb.WriteString(fmt.Sprintf("Updated: %s\n", time.Time(fields.Updated).Format("2006-01-02 15:04:05")))
 		}
 
 		// Project information
-		if fields.Project != nil {
+		if fields.Project.Name != "" {
 			sb.WriteString(fmt.Sprintf("Project: %s", fields.Project.Name))
 			if fields.Project.Key != "" {
 				sb.WriteString(fmt.Sprintf(" (%s)", fields.Project.Key))
@@ -128,17 +116,9 @@ func FormatJiraIssue(issue *models.IssueSchemeV2) string {
 		}
 
 		// Parent issue
-		if fields.Parent != nil {
+		if fields.Parent != nil && fields.Parent.Key != "" {
 			sb.WriteString(fmt.Sprintf("Parent: %s", fields.Parent.Key))
-			if fields.Parent.Fields != nil && fields.Parent.Fields.Summary != "" {
-				sb.WriteString(fmt.Sprintf(" - %s", fields.Parent.Fields.Summary))
-			}
 			sb.WriteString("\n")
-		}
-
-		// Work information
-		if fields.Workratio > 0 {
-			sb.WriteString(fmt.Sprintf("Work Ratio: %d\n", fields.Workratio))
 		}
 
 		// Labels
@@ -170,32 +150,15 @@ func FormatJiraIssue(issue *models.IssueSchemeV2) string {
 			}
 		}
 
-		// Affected Versions
-		if len(fields.Versions) > 0 {
-			sb.WriteString("Affected Versions:\n")
-			for _, version := range fields.Versions {
-				sb.WriteString(fmt.Sprintf("- %s", version.Name))
-				if version.Description != "" {
-					sb.WriteString(fmt.Sprintf(" (%s)", version.Description))
-				}
-				sb.WriteString("\n")
-			}
-		}
-
-		// Security Level
-		if fields.Security != nil {
-			sb.WriteString(fmt.Sprintf("Security Level: %s\n", fields.Security.Name))
-		}
-
 		// Subtasks
 		if len(fields.Subtasks) > 0 {
 			sb.WriteString("Subtasks:\n")
 			for _, subtask := range fields.Subtasks {
 				sb.WriteString(fmt.Sprintf("- %s", subtask.Key))
-				if subtask.Fields != nil && subtask.Fields.Summary != "" {
+				if subtask.Fields.Summary != "" {
 					sb.WriteString(fmt.Sprintf(": %s", subtask.Fields.Summary))
 				}
-				if subtask.Fields != nil && subtask.Fields.Status != nil {
+				if subtask.Fields.Status != nil {
 					sb.WriteString(fmt.Sprintf(" [%s]", subtask.Fields.Status.Name))
 				}
 				sb.WriteString("\n")
@@ -222,26 +185,6 @@ func FormatJiraIssue(issue *models.IssueSchemeV2) string {
 				}
 			}
 		}
-
-		// Watchers
-		if fields.Watcher != nil {
-			sb.WriteString(fmt.Sprintf("Watchers: %d\n", fields.Watcher.WatchCount))
-		}
-
-		// Votes
-		if fields.Votes != nil {
-			sb.WriteString(fmt.Sprintf("Votes: %d\n", fields.Votes.Votes))
-		}
-
-		// Comments (summary only to avoid too much text)
-		if fields.Comment != nil && fields.Comment.Total > 0 {
-			sb.WriteString(fmt.Sprintf("Comments: %d total\n", fields.Comment.Total))
-		}
-
-		// Worklogs (summary only)
-		if fields.Worklog != nil && fields.Worklog.Total > 0 {
-			sb.WriteString(fmt.Sprintf("Worklogs: %d entries\n", fields.Worklog.Total))
-		}
 	}
 
 	// Available Transitions
@@ -252,27 +195,12 @@ func FormatJiraIssue(issue *models.IssueSchemeV2) string {
 		}
 	}
 
-	// Story point estimate from changelog (if available)
-	if issue.Changelog != nil && issue.Changelog.Histories != nil {
-		storyPoint := ""
-		for _, history := range issue.Changelog.Histories {
-			for _, item := range history.Items {
-				if item.Field == "Story point estimate" && item.ToString != "" {
-					storyPoint = item.ToString
-				}
-			}
-		}
-		if storyPoint != "" {
-			sb.WriteString(fmt.Sprintf("Story Point Estimate: %s\n", storyPoint))
-		}
-	}
-
 	return sb.String()
 }
 
 // FormatJiraIssueCompact returns a compact single-line representation of a Jira issue
 // Useful for search results or lists
-func FormatJiraIssueCompact(issue *models.IssueSchemeV2) string {
+func FormatJiraIssueCompact(issue *jira.Issue) string {
 	if issue == nil {
 		return ""
 	}
@@ -288,7 +216,7 @@ func FormatJiraIssueCompact(issue *models.IssueSchemeV2) string {
 			parts = append(parts, fmt.Sprintf("Summary: %s", fields.Summary))
 		}
 
-		if fields.Status != nil {
+		if fields.Status != nil && fields.Status.Name != "" {
 			parts = append(parts, fmt.Sprintf("Status: %s", fields.Status.Name))
 		}
 
@@ -298,7 +226,7 @@ func FormatJiraIssueCompact(issue *models.IssueSchemeV2) string {
 			parts = append(parts, "Assignee: Unassigned")
 		}
 
-		if fields.Priority != nil {
+		if fields.Priority != nil && fields.Priority.Name != "" {
 			parts = append(parts, fmt.Sprintf("Priority: %s", fields.Priority.Name))
 		}
 	}

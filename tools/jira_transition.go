@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ctreminiom/go-atlassian/pkg/infra/models"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/nguyenvanduocit/jira-mcp/services"
@@ -30,20 +29,33 @@ func RegisterJiraTransitionTool(s *server.MCPServer) {
 func jiraTransitionIssueHandler(ctx context.Context, request mcp.CallToolRequest, input TransitionIssueInput) (*mcp.CallToolResult, error) {
 	client := services.JiraClient()
 
-	var options *models.IssueMoveOptionsV2
+	// Use a simplified transition approach via custom request
+	transitionData := map[string]interface{}{
+		"transition": map[string]interface{}{
+			"id": input.TransitionID,
+		},
+	}
+
+	// Add comment if provided
 	if input.Comment != "" {
-		options = &models.IssueMoveOptionsV2{
-			Fields: &models.IssueSchemeV2{},
+		transitionData["update"] = map[string]interface{}{
+			"comment": []map[string]interface{}{
+				{
+					"add": map[string]interface{}{
+						"body": input.Comment,
+					},
+				},
+			},
 		}
 	}
 
-	response, err := client.Issue.Move(ctx, input.IssueKey, input.TransitionID, options)
+	req, err := client.NewRequest("POST", fmt.Sprintf("rest/api/2/issue/%s/transitions", input.IssueKey), transitionData)
 	if err != nil {
-		if response != nil {
-			return nil, fmt.Errorf("transition failed: %s (endpoint: %s)",
-				response.Bytes.String(),
-				response.Endpoint)
-		}
+		return nil, fmt.Errorf("failed to create transition request: %v", err)
+	}
+
+	_, err = client.Do(req, nil)
+	if err != nil {
 		return nil, fmt.Errorf("transition failed: %v", err)
 	}
 

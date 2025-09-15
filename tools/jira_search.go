@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/andygrunwald/go-jira"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/nguyenvanduocit/jira-mcp/services"
@@ -31,36 +32,41 @@ func RegisterJiraSearchTool(s *server.MCPServer) {
 func jiraSearchHandler(ctx context.Context, request mcp.CallToolRequest, input SearchIssueInput) (*mcp.CallToolResult, error) {
 	client := services.JiraClient()
 
-	// Parse fields parameter
-	var fields []string
-	if input.Fields != "" {
-		fields = strings.Split(strings.ReplaceAll(input.Fields, " ", ""), ",")
+	// Parse expand parameter
+	expand := "transitions,changelog,subtasks"
+	if input.Expand != "" {
+		expand = input.Expand
 	}
 
-	// Parse expand parameter
-	var expand []string = []string{"transitions", "changelog", "subtasks", "description"}
-	if input.Expand != "" {
-		expand = strings.Split(strings.ReplaceAll(input.Expand, " ", ""), ",")
+	// Prepare search options
+	searchOptions := &jira.SearchOptions{
+		StartAt:    0,
+		MaxResults: 30,
+		Expand:     expand,
+		Fields:     []string{},
 	}
-	
-	searchResult, response, err := client.Issue.Search.Get(ctx, input.JQL, fields, expand, 0, 30, "")
+
+	// Parse fields parameter
+	if input.Fields != "" {
+		fields := strings.Split(strings.ReplaceAll(input.Fields, " ", ""), ",")
+		searchOptions.Fields = fields
+	}
+
+	issues, _, err := client.Issue.SearchWithContext(ctx, input.JQL, searchOptions)
 	if err != nil {
-		if response != nil {
-			return nil, fmt.Errorf("failed to search issues: %s (endpoint: %s)", response.Bytes.String(), response.Endpoint)
-		}
 		return nil, fmt.Errorf("failed to search issues: %v", err)
 	}
 
-	if len(searchResult.Issues) == 0 {
+	if len(issues) == 0 {
 		return mcp.NewToolResultText("No issues found matching the search criteria."), nil
 	}
 
-	var sb strings.Builder	
-	for index, issue := range searchResult.Issues {
+	var sb strings.Builder
+	for index, issue := range issues {
 		// Use the comprehensive formatter for each issue
-		formattedIssue := util.FormatJiraIssue(issue)
+		formattedIssue := util.FormatJiraIssue(&issue)
 		sb.WriteString(formattedIssue)
-		if index < len(searchResult.Issues) - 1 {
+		if index < len(issues)-1 {
 			sb.WriteString("\n===\n")
 		}
 	}
