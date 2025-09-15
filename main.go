@@ -29,11 +29,31 @@ func main() {
 	}
 
 	// Check required environment variables
-	requiredEnvs := []string{"JIRA_HOST", "JIRA_PAT"}
+	host := os.Getenv("JIRA_HOST")
+	pat := os.Getenv("JIRA_PAT")
+	username := os.Getenv("JIRA_USERNAME")
+	password := os.Getenv("JIRA_PASSWORD")
+
 	missingEnvs := []string{}
-	for _, env := range requiredEnvs {
-		if os.Getenv(env) == "" {
-			missingEnvs = append(missingEnvs, env)
+
+	// JIRA_HOST is always required
+	if host == "" {
+		missingEnvs = append(missingEnvs, "JIRA_HOST")
+	}
+
+	// Check authentication: either PAT or username/password
+	hasPAT := pat != ""
+	hasBasicAuth := username != "" && password != ""
+
+	if !hasPAT && !hasBasicAuth {
+		if username == "" {
+			missingEnvs = append(missingEnvs, "JIRA_USERNAME (for basic auth)")
+		}
+		if password == "" {
+			missingEnvs = append(missingEnvs, "JIRA_PASSWORD (for basic auth)")
+		}
+		if pat == "" {
+			missingEnvs = append(missingEnvs, "JIRA_PAT (for token auth)")
 		}
 	}
 
@@ -46,30 +66,58 @@ func main() {
 		}
 		fmt.Println()
 		fmt.Println("📋 Setup Instructions:")
-		fmt.Println("1. Get your Personal Access Token (PAT) from your local Jira 10.3.2 instance")
+		fmt.Println("Choose one of the following authentication methods:")
+		fmt.Println()
+		fmt.Println("🔑 Method 1: Personal Access Token (PAT) - For newer Jira versions")
+		fmt.Println("1. Get your Personal Access Token (PAT) from your Jira instance")
 		fmt.Println("   - Go to Jira > Settings > Personal Access Tokens")
 		fmt.Println("   - Create a new token with appropriate permissions")
 		fmt.Println("2. Set the environment variables:")
-		fmt.Println()
-		fmt.Println("   Option A - Using .env file:")
-		fmt.Println("   Create a .env file with:")
 		fmt.Println("   JIRA_HOST=http://localhost:8080")
 		fmt.Println("   JIRA_PAT=your-personal-access-token")
 		fmt.Println()
+		fmt.Println("🔑 Method 2: Username/Password - For older Jira versions (v2 API)")
+		fmt.Println("1. Use your Jira username and password")
+		fmt.Println("2. Set the environment variables:")
+		fmt.Println("   JIRA_HOST=http://localhost:8080")
+		fmt.Println("   JIRA_USERNAME=your-username")
+		fmt.Println("   JIRA_PASSWORD=your-password")
+		fmt.Println()
+		fmt.Println("📁 Configuration Options:")
+		fmt.Println("   Option A - Using .env file:")
+		fmt.Println("   Create a .env file with one of the authentication methods above")
+		fmt.Println()
 		fmt.Println("   Option B - Using environment variables:")
 		fmt.Println("   export JIRA_HOST=http://localhost:8080")
+		fmt.Println("   # For PAT:")
 		fmt.Println("   export JIRA_PAT=your-personal-access-token")
+		fmt.Println("   # OR for username/password:")
+		fmt.Println("   export JIRA_USERNAME=your-username")
+		fmt.Println("   export JIRA_PASSWORD=your-password")
 		fmt.Println()
 		fmt.Println("   Option C - Using Docker:")
+		fmt.Println("   # For PAT:")
 		fmt.Printf("   docker run -e JIRA_HOST=http://localhost:8080 \\\n")
 		fmt.Printf("              -e JIRA_PAT=your-personal-access-token \\\n")
+		fmt.Printf("              ghcr.io/nguyenvanduocit/jira-mcp:latest\n")
+		fmt.Println("   # For username/password:")
+		fmt.Printf("   docker run -e JIRA_HOST=http://localhost:8080 \\\n")
+		fmt.Printf("              -e JIRA_USERNAME=your-username \\\n")
+		fmt.Printf("              -e JIRA_PASSWORD=your-password \\\n")
 		fmt.Printf("              ghcr.io/nguyenvanduocit/jira-mcp:latest\n")
 		fmt.Println()
 		os.Exit(1)
 	}
 
 	fmt.Println("✅ All required environment variables are set")
-	fmt.Printf("🔗 Connected to: %s\n", os.Getenv("JIRA_HOST"))
+	fmt.Printf("🔗 Connected to: %s\n", host)
+
+	// Show which authentication method is being used
+	if hasPAT {
+		fmt.Println("🔑 Using Personal Access Token (PAT) authentication")
+	} else {
+		fmt.Println("🔑 Using Username/Password (Basic) authentication")
+	}
 
 	mcpServer := server.NewMCPServer(
 		"Jira MCP",
