@@ -70,25 +70,9 @@ Before you begin, you'll need:
 
 ### Step 2: Choose Your Installation Method
 
-We recommend **Docker** for the easiest setup:
+#### 📦 Option A: Download Binary (Recommended)
 
-#### 🐳 Option A: Docker (Recommended)
-
-```bash
-# Pull the latest image
-docker pull ghcr.io/nguyenvanduocit/jira-mcp:latest
-
-# Test it works (replace with your local Jira details)
-docker run --rm \
-  -e JIRA_HOST=http://localhost:8080 \
-  -e JIRA_PAT=your-personal-access-token \
-  ghcr.io/nguyenvanduocit/jira-mcp:latest \
-  --http_port 3000
-```
-
-#### 📦 Option B: Download Binary
-
-1. Go to [GitHub Releases](https://github.com/nguyenvanduocit/jira-mcp/releases)
+1. Go to [GitHub Releases](https://github.com/hdbrzgr/jira-mcp/releases)
 2. Download for your platform:
    - **macOS**: `jira-mcp_darwin_amd64`
    - **Linux**: `jira-mcp_linux_amd64`  
@@ -99,10 +83,10 @@ docker run --rm \
    sudo mv jira-mcp_* /usr/local/bin/jira-mcp
    ```
 
-#### 🛠️ Option C: Build from Source
+#### 🛠️ Option B: Build from Source
 
 ```bash
-go install github.com/nguyenvanduocit/jira-mcp@latest
+go install github.com/hdbrzgr/jira-mcp/v2@latest
 ```
 
 ### Step 3: Configure Cursor
@@ -111,29 +95,12 @@ go install github.com/nguyenvanduocit/jira-mcp@latest
 2. **Go to Settings** → **Features** → **Model Context Protocol**
 3. **Add a new MCP server** with this configuration:
 
-#### For Docker Users:
+#### Configuration:
 ```json
 {
   "mcpServers": {
     "jira": {
-      "command": "docker",
-      "args": [
-        "run", "--rm", "-i",
-        "-e", "JIRA_HOST=http://localhost:8080",
-        "-e", "JIRA_PAT=your-personal-access-token",
-        "ghcr.io/nguyenvanduocit/jira-mcp:latest"
-      ]
-    }
-  }
-}
-```
-
-#### For Binary Users:
-```json
-{
-  "mcpServers": {
-    "jira": {
-      "command": "/usr/local/bin/jira-mcp",
+      "command": "$GO_PATH/bin/jira-mcp",
       "env": {
         "JIRA_HOST": "http://localhost:8080",
         "JIRA_PAT": "your-personal-access-token"
@@ -179,9 +146,6 @@ Then use it:
 ```bash
 # With binary
 jira-mcp -env .env
-
-# With Docker
-docker run --rm -i --env-file .env ghcr.io/nguyenvanduocit/jira-mcp:latest
 ```
 
 ### HTTP Mode for Development
@@ -245,7 +209,7 @@ Once configured, you can ask Claude to help with Jira tasks using natural langua
 ### Getting Help
 
 1. **Check the logs**: Run with `-http_port` to see detailed error messages
-2. **Test your credentials**: Try the Docker test command from Step 2
+2. **Test your credentials**: Run the binary with your credentials to verify connectivity
 3. **Verify Cursor config**: The app will show you the exact configuration to use
 
 ## 📚 Development
@@ -254,7 +218,7 @@ For local development and contributing:
 
 ```bash
 # Clone the repository
-git clone https://github.com/nguyenvanduocit/jira-mcp.git
+git clone https://github.com/hdbrzgr/jira-mcp.git
 cd jira-mcp
 
 # Create .env file with your credentials
