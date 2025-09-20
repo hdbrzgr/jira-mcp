@@ -23,10 +23,10 @@ func RegisterJiraTransitionTool(s *server.MCPServer) {
 		mcp.WithString("transition_id", mcp.Required(), mcp.Description("Transition ID from available transitions list")),
 		mcp.WithString("comment", mcp.Description("Optional comment to add with transition")),
 	)
-	s.AddTool(jiraTransitionTool, mcp.NewTypedToolHandler(jiraTransitionIssueHandler))
+	s.AddTool(jiraTransitionTool, mcp.NewTypedToolHandler(JiraTransitionIssueHandler))
 }
 
-func jiraTransitionIssueHandler(ctx context.Context, request mcp.CallToolRequest, input TransitionIssueInput) (*mcp.CallToolResult, error) {
+func JiraTransitionIssueHandler(ctx context.Context, request mcp.CallToolRequest, input TransitionIssueInput) (*mcp.CallToolResult, error) {
 	client := services.JiraClient()
 
 	// Use a simplified transition approach via custom request

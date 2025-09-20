@@ -3,6 +3,7 @@ package tools
 import (
 	"context"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/andygrunwald/go-jira"
@@ -53,7 +54,7 @@ func RegisterJiraIssueTool(s *server.MCPServer) {
 		mcp.WithString("fields", mcp.Description("Comma-separated list of fields to retrieve (e.g., 'summary,status,assignee'). If not specified, all fields are returned.")),
 		mcp.WithString("expand", mcp.Description("Comma-separated list of fields to expand for additional details (e.g., 'transitions,changelog,subtasks'). Default: 'transitions,changelog'")),
 	)
-	s.AddTool(jiraGetIssueTool, mcp.NewTypedToolHandler(jiraGetIssueHandler))
+	s.AddTool(jiraGetIssueTool, mcp.NewTypedToolHandler(JiraGetIssueHandler))
 
 	jiraCreateIssueTool := mcp.NewTool("create_issue",
 		mcp.WithDescription("Create a new Jira issue with specified details. Returns the created issue's key, ID, and URL"),
@@ -63,7 +64,7 @@ func RegisterJiraIssueTool(s *server.MCPServer) {
 		mcp.WithString("issue_type", mcp.Required(), mcp.Description("Type of issue to create (common types: Bug, Task, Subtask, Story, Epic)")),
 		mcp.WithString("assignee", mcp.Description("Username or email of the person to assign the issue to (optional)")),
 	)
-	s.AddTool(jiraCreateIssueTool, mcp.NewTypedToolHandler(jiraCreateIssueHandler))
+	s.AddTool(jiraCreateIssueTool, mcp.NewTypedToolHandler(JiraCreateIssueHandler))
 
 	jiraCreateChildIssueTool := mcp.NewTool("create_child_issue",
 		mcp.WithDescription("Create a child issue (sub-task) linked to a parent issue in Jira. Returns the created issue's key, ID, and URL"),
@@ -73,7 +74,7 @@ func RegisterJiraIssueTool(s *server.MCPServer) {
 		mcp.WithString("issue_type", mcp.Description("Type of child issue to create (defaults to 'Subtask' if not specified)")),
 		mcp.WithString("assignee", mcp.Description("Username or email of the person to assign the issue to (optional)")),
 	)
-	s.AddTool(jiraCreateChildIssueTool, mcp.NewTypedToolHandler(jiraCreateChildIssueHandler))
+	s.AddTool(jiraCreateChildIssueTool, mcp.NewTypedToolHandler(JiraCreateChildIssueHandler))
 
 	jiraUpdateIssueTool := mcp.NewTool("update_issue",
 		mcp.WithDescription("Modify an existing Jira issue's details. Supports partial updates - only specified fields will be changed"),
@@ -82,16 +83,16 @@ func RegisterJiraIssueTool(s *server.MCPServer) {
 		mcp.WithString("description", mcp.Description("New description for the issue (optional)")),
 		mcp.WithString("assignee", mcp.Description("Username or email of the person to assign the issue to (optional)")),
 	)
-	s.AddTool(jiraUpdateIssueTool, mcp.NewTypedToolHandler(jiraUpdateIssueHandler))
+	s.AddTool(jiraUpdateIssueTool, mcp.NewTypedToolHandler(JiraUpdateIssueHandler))
 
 	jiraListIssueTypesTool := mcp.NewTool("list_issue_types",
 		mcp.WithDescription("List all available issue types in a Jira project with their IDs, names, descriptions, and other attributes"),
 		mcp.WithString("project_key", mcp.Required(), mcp.Description("Project identifier to list issue types for (e.g., KP, PROJ)")),
 	)
-	s.AddTool(jiraListIssueTypesTool, mcp.NewTypedToolHandler(jiraListIssueTypesHandler))
+	s.AddTool(jiraListIssueTypesTool, mcp.NewTypedToolHandler(JiraListIssueTypesHandler))
 }
 
-func jiraGetIssueHandler(ctx context.Context, request mcp.CallToolRequest, input GetIssueInput) (*mcp.CallToolResult, error) {
+func JiraGetIssueHandler(ctx context.Context, request mcp.CallToolRequest, input GetIssueInput) (*mcp.CallToolResult, error) {
 	client := services.JiraClient()
 
 	// Parse expand parameter with default values
@@ -100,12 +101,13 @@ func jiraGetIssueHandler(ctx context.Context, request mcp.CallToolRequest, input
 		expand = input.Expand
 	}
 
-	issue, _, err := client.Issue.GetWithContext(ctx, input.IssueKey, &jira.GetQueryOptions{
+	issue, response, err := client.Issue.GetWithContext(ctx, input.IssueKey, &jira.GetQueryOptions{
 		Expand: expand,
 		Fields: input.Fields,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get issue: %v", err)
+		body, _ := io.ReadAll(response.Body)
+		return nil, fmt.Errorf("failed to get issue: %v, %s", err, string(body))
 	}
 
 	// Use the new util function to format the issue
@@ -114,7 +116,7 @@ func jiraGetIssueHandler(ctx context.Context, request mcp.CallToolRequest, input
 	return mcp.NewToolResultText(formattedIssue), nil
 }
 
-func jiraCreateIssueHandler(ctx context.Context, request mcp.CallToolRequest, input CreateIssueInput) (*mcp.CallToolResult, error) {
+func JiraCreateIssueHandler(ctx context.Context, request mcp.CallToolRequest, input CreateIssueInput) (*mcp.CallToolResult, error) {
 	client := services.JiraClient()
 
 	issue := &jira.Issue{
@@ -137,16 +139,17 @@ func jiraCreateIssueHandler(ctx context.Context, request mcp.CallToolRequest, in
 		}
 	}
 
-	createdIssue, _, err := client.Issue.CreateWithContext(ctx, issue)
+	createdIssue, response, err := client.Issue.CreateWithContext(ctx, issue)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create issue: %v", err)
+		body, _ := io.ReadAll(response.Body)
+		return nil, fmt.Errorf("failed to create issue: %v, %s", err, string(body))
 	}
 
 	result := fmt.Sprintf("Issue created successfully!\nKey: %s\nID: %s\nURL: %s", createdIssue.Key, createdIssue.ID, createdIssue.Self)
 	return mcp.NewToolResultText(result), nil
 }
 
-func jiraCreateChildIssueHandler(ctx context.Context, request mcp.CallToolRequest, input CreateChildIssueInput) (*mcp.CallToolResult, error) {
+func JiraCreateChildIssueHandler(ctx context.Context, request mcp.CallToolRequest, input CreateChildIssueInput) (*mcp.CallToolResult, error) {
 	client := services.JiraClient()
 
 	// Get the parent issue to retrieve its project
@@ -184,9 +187,10 @@ func jiraCreateChildIssueHandler(ctx context.Context, request mcp.CallToolReques
 		}
 	}
 
-	createdIssue, _, err := client.Issue.CreateWithContext(ctx, issue)
+	createdIssue, response, err := client.Issue.CreateWithContext(ctx, issue)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create child issue: %v", err)
+		body, _ := io.ReadAll(response.Body)
+		return nil, fmt.Errorf("failed to create child issue: %v, %s", err, string(body))
 	}
 
 	result := fmt.Sprintf("Child issue created successfully!\nKey: %s\nID: %s\nURL: %s\nParent: %s",
@@ -198,7 +202,7 @@ func jiraCreateChildIssueHandler(ctx context.Context, request mcp.CallToolReques
 	return mcp.NewToolResultText(result), nil
 }
 
-func jiraUpdateIssueHandler(ctx context.Context, request mcp.CallToolRequest, input UpdateIssueInput) (*mcp.CallToolResult, error) {
+func JiraUpdateIssueHandler(ctx context.Context, request mcp.CallToolRequest, input UpdateIssueInput) (*mcp.CallToolResult, error) {
 	client := services.JiraClient()
 
 	issue := &jira.Issue{
@@ -220,15 +224,16 @@ func jiraUpdateIssueHandler(ctx context.Context, request mcp.CallToolRequest, in
 		}
 	}
 
-	_, _, err := client.Issue.UpdateWithContext(ctx, issue)
+	_, response, err := client.Issue.UpdateWithContext(ctx, issue)
 	if err != nil {
-		return nil, fmt.Errorf("failed to update issue: %v", err)
+		body, _ := io.ReadAll(response.Body)
+		return nil, fmt.Errorf("failed to update issue: %v, %s", err, string(body))
 	}
 
 	return mcp.NewToolResultText("Issue updated successfully!"), nil
 }
 
-func jiraListIssueTypesHandler(ctx context.Context, request mcp.CallToolRequest, input ListIssueTypesInput) (*mcp.CallToolResult, error) {
+func JiraListIssueTypesHandler(ctx context.Context, request mcp.CallToolRequest, input ListIssueTypesInput) (*mcp.CallToolResult, error) {
 	client := services.JiraClient()
 
 	req, err := client.NewRequest("GET", "rest/api/2/issuetype", nil)
