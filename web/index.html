@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jira MCP Test Interface</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div x-data="mcpTester()" x-cloak class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h1 class="text-3xl font-bold text-gray-800 mb-4">Jira MCP Test Interface</h1>
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-4">
+                    <label class="text-sm font-medium text-gray-700">Server URL:</label>
+                    <input x-model="serverUrl" type="text" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="http://localhost:8080/mcp">
+                    <button @click="initializeSession()" :disabled="loading" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50">
+                        <span x-show="!loading">Initialize Session</span>
+                        <span x-show="loading">Connecting...</span>
+                    </button>
+                </div>
+                <div class="text-sm">
+                    <span class="font-medium">Session Status:</span>
+                    <span :class="sessionId ? 'text-green-600' : 'text-red-600'" x-text="sessionId ? 'Connected' : 'Not Connected'"></span>
+                </div>
+            </div>
+            <div x-show="sessionId" class="mt-2 text-xs text-gray-500">
+                Session ID: <span x-text="sessionId"></span>
+            </div>
+        </div>
+
+        <!-- Tool Selector -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 mb-4">Select Tool</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <template x-for="(tool, key) in tools" :key="key">
+                    <button @click="selectedTool = key" 
+                            :class="selectedTool === key ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+                            class="px-4 py-3 rounded-md font-medium transition-colors">
+                        <div x-text="tool.name"></div>
+                        <div class="text-xs opacity-75" x-text="tool.category"></div>
+                    </button>
+                </template>
+            </div>
+        </div>
+
+        <!-- Tool Form -->
+        <div x-show="selectedTool" class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-xl font-semibold text-gray-800" x-text="tools[selectedTool]?.name"></h2>
+                <button @click="executeTool()" :disabled="!sessionId || loading" class="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50">
+                    <span x-show="!loading">Execute</span>
+                    <span x-show="loading">Executing...</span>
+                </button>
+            </div>
+            
+            <p class="text-gray-600 mb-6" x-text="tools[selectedTool]?.description"></p>
+            
+            <form @submit.prevent="executeTool()" class="space-y-4">
+                <template x-for="param in tools[selectedTool]?.parameters || []" :key="param.name">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            <span x-text="param.label"></span>
+                            <span x-show="param.required" class="text-red-500">*</span>
+                        </label>
+                        <template x-if="param.type === 'textarea'">
+                            <textarea x-model="formData[param.name]" 
+                                     :placeholder="param.placeholder"
+                                     :required="param.required"
+                                     rows="3"
+                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                        </template>
+                        <template x-if="param.type === 'text'">
+                            <input x-model="formData[param.name]" 
+                                   type="text"
+                                   :placeholder="param.placeholder"
+                                   :required="param.required"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </template>
+                        <p class="text-xs text-gray-500 mt-1" x-text="param.description"></p>
+                    </div>
+                </template>
+            </form>
+        </div>
+
+        <!-- Results -->
+        <div x-show="result || error" class="bg-white rounded-lg shadow-md p-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Result</h3>
+            
+            <!-- Success Result -->
+            <div x-show="result && !error" class="bg-green-50 border border-green-200 rounded-md p-4">
+                <pre class="text-sm text-green-800 whitespace-pre-wrap" x-text="result"></pre>
+            </div>
+            
+            <!-- Error Result -->
+            <div x-show="error" class="bg-red-50 border border-red-200 rounded-md p-4">
+                <pre class="text-sm text-red-800 whitespace-pre-wrap" x-text="error"></pre>
+            </div>
+            
+            <!-- Clear Button -->
+            <button @click="clearResults()" class="mt-4 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">
+                Clear Results
+            </button>
+        </div>
+    </div>
+
+    <script>
+        function mcpTester() {
+            return {
+                serverUrl: 'http://localhost:8080/mcp',
+                sessionId: null,
+                selectedTool: null,
+                formData: {},
+                result: null,
+                error: null,
+                loading: false,
+                
+                tools: {
+                    get_issue: {
+                        name: 'Get Issue',
+                        category: 'Issues',
+                        description: 'Retrieve detailed information about a specific Jira issue including its status, assignee, description, subtasks, and available transitions',
+                        parameters: [
+                            { name: 'issue_key', label: 'Issue Key', type: 'text', required: true, placeholder: 'TEST-1', description: 'The unique identifier of the Jira issue (e.g., KP-2, PROJ-123)' },
+                            { name: 'fields', label: 'Fields', type: 'text', required: false, placeholder: 'summary,status,assignee', description: 'Comma-separated list of fields to retrieve' },
+                            { name: 'expand', label: 'Expand', type: 'text', required: false, placeholder: 'transitions,changelog', description: 'Comma-separated list of fields to expand for additional details' }
+                        ]
+                    },
+                    create_issue: {
+                        name: 'Create Issue',
+                        category: 'Issues',
+                        description: 'Create a new Jira issue with specified details. Returns the created issue\'s key, ID, and URL',
+                        parameters: [
+                            { name: 'project_key', label: 'Project Key', type: 'text', required: true, placeholder: 'TEST', description: 'Project identifier where the issue will be created' },
+                            { name: 'summary', label: 'Summary', type: 'text', required: true, placeholder: 'Issue summary', description: 'Brief title or headline of the issue' },
+                            { name: 'description', label: 'Description', type: 'textarea', required: true, placeholder: 'Detailed description...', description: 'Detailed explanation of the issue' },
+                            { name: 'issue_type', label: 'Issue Type', type: 'text', required: true, placeholder: 'Task', description: 'Type of issue to create (Bug, Task, Subtask, Story, Epic)' },
+                            { name: 'assignee', label: 'Assignee', type: 'text', required: false, placeholder: 'username', description: 'Username or email of the person to assign the issue to' }
+                        ]
+                    },
+                    create_child_issue: {
+                        name: 'Create Child Issue',
+                        category: 'Issues',
+                        description: 'Create a child issue (sub-task) linked to a parent issue in Jira',
+                        parameters: [
+                            { name: 'parent_issue_key', label: 'Parent Issue Key', type: 'text', required: true, placeholder: 'TEST-1', description: 'The parent issue key to which this child issue will be linked' },
+                            { name: 'summary', label: 'Summary', type: 'text', required: true, placeholder: 'Child issue summary', description: 'Brief title or headline of the child issue' },
+                            { name: 'description', label: 'Description', type: 'textarea', required: true, placeholder: 'Detailed description...', description: 'Detailed explanation of the child issue' },
+                            { name: 'issue_type', label: 'Issue Type', type: 'text', required: false, placeholder: 'Subtask', description: 'Type of child issue to create (defaults to Subtask)' },
+                            { name: 'assignee', label: 'Assignee', type: 'text', required: false, placeholder: 'username', description: 'Username or email of the person to assign the issue to' }
+                        ]
+                    },
+                    update_issue: {
+                        name: 'Update Issue',
+                        category: 'Issues',
+                        description: 'Modify an existing Jira issue\'s details. Supports partial updates',
+                        parameters: [
+                            { name: 'issue_key', label: 'Issue Key', type: 'text', required: true, placeholder: 'TEST-1', description: 'The unique identifier of the issue to update' },
+                            { name: 'summary', label: 'Summary', type: 'text', required: false, placeholder: 'New summary', description: 'New title for the issue (optional)' },
+                            { name: 'description', label: 'Description', type: 'textarea', required: false, placeholder: 'New description...', description: 'New description for the issue (optional)' },
+                            { name: 'assignee', label: 'Assignee', type: 'text', required: false, placeholder: 'username', description: 'Username or email of the person to assign the issue to (optional)' }
+                        ]
+                    },
+                    list_issue_types: {
+                        name: 'List Issue Types',
+                        category: 'Issues',
+                        description: 'List all available issue types in a Jira project with their IDs, names, descriptions, and other attributes',
+                        parameters: [
+                            { name: 'project_key', label: 'Project Key', type: 'text', required: true, placeholder: 'TEST', description: 'Project identifier to list issue types for' }
+                        ]
+                    },
+                    search_issue: {
+                        name: 'Search Issues',
+                        category: 'Search',
+                        description: 'Search for Jira issues using JQL (Jira Query Language). Returns key details like summary, status, assignee, and priority for matching issues',
+                        parameters: [
+                            { name: 'jql', label: 'JQL Query', type: 'textarea', required: true, placeholder: 'project = TEST AND status = "In Progress"', description: 'JQL query string' },
+                            { name: 'fields', label: 'Fields', type: 'text', required: false, placeholder: 'summary,status,assignee', description: 'Comma-separated list of fields to retrieve' },
+                            { name: 'expand', label: 'Expand', type: 'text', required: false, placeholder: 'transitions,changelog', description: 'Comma-separated list of fields to expand for additional details' }
+                        ]
+                    },
+                    add_comment: {
+                        name: 'Add Comment',
+                        category: 'Comments',
+                        description: 'Add a comment to a Jira issue',
+                        parameters: [
+                            { name: 'issue_key', label: 'Issue Key', type: 'text', required: true, placeholder: 'TEST-1', description: 'The unique identifier of the Jira issue' },
+                            { name: 'comment', label: 'Comment', type: 'textarea', required: true, placeholder: 'Your comment...', description: 'The comment text to add to the issue' }
+                        ]
+                    },
+                    get_comments: {
+                        name: 'Get Comments',
+                        category: 'Comments',
+                        description: 'Retrieve all comments from a Jira issue',
+                        parameters: [
+                            { name: 'issue_key', label: 'Issue Key', type: 'text', required: true, placeholder: 'TEST-1', description: 'The unique identifier of the Jira issue' }
+                        ]
+                    },
+                    transition_issue: {
+                        name: 'Transition Issue',
+                        category: 'Workflow',
+                        description: 'Transition an issue through its workflow using a valid transition ID. Get available transitions from get_issue',
+                        parameters: [
+                            { name: 'issue_key', label: 'Issue Key', type: 'text', required: true, placeholder: 'TEST-1', description: 'The issue to transition' },
+                            { name: 'transition_id', label: 'Transition ID', type: 'text', required: true, placeholder: '11', description: 'Transition ID from available transitions list' },
+                            { name: 'comment', label: 'Comment', type: 'textarea', required: false, placeholder: 'Optional comment...', description: 'Optional comment to add with transition' }
+                        ]
+                    }
+                },
+
+                async initializeSession() {
+                    this.loading = true;
+                    this.error = null;
+                    
+                    try {
+                        const response = await fetch(this.serverUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                jsonrpc: '2.0',
+                                id: 1,
+                                method: 'initialize',
+                                params: {
+                                    protocolVersion: '2024-11-05',
+                                    capabilities: {
+                                        roots: {
+                                            listChanged: true
+                                        },
+                                        sampling: {}
+                                    },
+                                    clientInfo: {
+                                        name: 'jira-mcp-test-ui',
+                                        version: '1.0.0'
+                                    }
+                                }
+                            })
+                        });
+
+                        const data = await response.json();
+                        
+                        if (data.error) {
+                            throw new Error(data.error.message || 'Failed to initialize session');
+                        }
+                        
+                        // In stateless mode, we might not get a sessionId, which is fine
+                        this.sessionId = data.result?.sessionId || 'stateless-mode';
+                        this.result = 'Session initialized successfully! (Stateless mode enabled)';
+                    } catch (err) {
+                        this.error = `Failed to initialize session: ${err.message}`;
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                async executeTool() {
+                    if (!this.sessionId) {
+                        this.error = 'Please initialize session first';
+                        return;
+                    }
+
+                    this.loading = true;
+                    this.error = null;
+                    this.result = null;
+
+                    try {
+                        const headers = {
+                            'Content-Type': 'application/json',
+                        };
+
+                        // Add session ID header if we have one and it's not stateless mode
+                        if (this.sessionId !== 'session-initialized' && this.sessionId !== 'stateless-mode') {
+                            headers['X-Session-ID'] = this.sessionId;
+                        }
+
+                        const response = await fetch(this.serverUrl, {
+                            method: 'POST',
+                            headers: headers,
+                            body: JSON.stringify({
+                                jsonrpc: '2.0',
+                                id: Date.now(),
+                                method: 'tools/call',
+                                params: {
+                                    name: this.selectedTool,
+                                    arguments: this.formData
+                                }
+                            })
+                        });
+
+                        const data = await response.json();
+                        
+                        if (data.error) {
+                            throw new Error(data.error.message || 'Tool execution failed');
+                        }
+                        
+                        this.result = data.result?.content?.[0]?.text || JSON.stringify(data.result, null, 2);
+                    } catch (err) {
+                        this.error = `Tool execution failed: ${err.message}`;
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+
+                clearResults() {
+                    this.result = null;
+                    this.error = null;
+                },
+
+                // Watch for tool changes to reset form data
+                init() {
+                    this.$watch('selectedTool', () => {
+                        this.formData = {};
+                        this.clearResults();
+                    });
+                }
+            }
+        }
+    </script>
+</body>
+</html>

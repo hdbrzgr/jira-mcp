@@ -1,0 +1,430 @@
+openapi: 3.0.3
+info:
+  title: Jira MCP Server API
+  description: |
+    Model Context Protocol (MCP) server for Jira integration.
+    This API provides tools for managing Jira issues, comments, transitions, and searches through the MCP protocol.
+    
+    ## Authentication
+    Configure the following environment variables:
+    - `JIRA_HOST`: Your Jira instance URL
+    - `JIRA_PAT`: Personal Access Token (recommended)
+    - OR `JIRA_USERNAME` + `JIRA_PASSWORD`: Basic authentication
+    
+    ## Session Management
+    1. First initialize a session using the `/initialize` endpoint
+    2. Use the returned session ID in subsequent requests via `X-Session-ID` header
+    
+    ## Tool Execution
+    All tools are executed via the `/tools/call` endpoint with the tool name and arguments.
+  version: 1.0.1
+  contact:
+    name: Jira MCP Server
+    url: https://github.com/hdbrzgr/jira-mcp
+servers:
+  - url: http://localhost:8080/mcp
+    description: Local development server
+
+paths:
+  /initialize:
+    post:
+      summary: Initialize MCP Session
+      description: Initialize a new MCP session. Must be called before using any tools.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitializeRequest'
+            example:
+              jsonrpc: "2.0"
+              id: 1
+              method: "initialize"
+              params:
+                protocolVersion: "2024-11-05"
+                capabilities:
+                  roots:
+                    listChanged: true
+                  sampling: {}
+                clientInfo:
+                  name: "test-client"
+                  version: "1.0.0"
+      responses:
+        '200':
+          description: Session initialized successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InitializeResponse'
+
+  /tools/call:
+    post:
+      summary: Execute MCP Tool
+      description: Execute a specific Jira MCP tool with the provided arguments
+      parameters:
+        - name: X-Session-ID
+          in: header
+          description: Session ID obtained from initialization
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ToolCallRequest'
+      responses:
+        '200':
+          description: Tool executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToolCallResponse'
+        '400':
+          description: Invalid request or missing parameters
+        '500':
+          description: Tool execution failed
+
+components:
+  schemas:
+    InitializeRequest:
+      type: object
+      required:
+        - jsonrpc
+        - id
+        - method
+        - params
+      properties:
+        jsonrpc:
+          type: string
+          enum: ["2.0"]
+        id:
+          type: integer
+        method:
+          type: string
+          enum: ["initialize"]
+        params:
+          type: object
+          required:
+            - protocolVersion
+            - capabilities
+            - clientInfo
+          properties:
+            protocolVersion:
+              type: string
+              example: "2024-11-05"
+            capabilities:
+              type: object
+              properties:
+                roots:
+                  type: object
+                  properties:
+                    listChanged:
+                      type: boolean
+                sampling:
+                  type: object
+            clientInfo:
+              type: object
+              required:
+                - name
+                - version
+              properties:
+                name:
+                  type: string
+                version:
+                  type: string
+
+    InitializeResponse:
+      type: object
+      properties:
+        jsonrpc:
+          type: string
+          enum: ["2.0"]
+        id:
+          type: integer
+        result:
+          type: object
+          properties:
+            sessionId:
+              type: string
+            capabilities:
+              type: object
+
+    ToolCallRequest:
+      type: object
+      required:
+        - jsonrpc
+        - id
+        - method
+        - params
+      properties:
+        jsonrpc:
+          type: string
+          enum: ["2.0"]
+        id:
+          type: integer
+        method:
+          type: string
+          enum: ["tools/call"]
+        params:
+          type: object
+          required:
+            - name
+            - arguments
+          properties:
+            name:
+              type: string
+              enum:
+                - get_issue
+                - create_issue
+                - create_child_issue
+                - update_issue
+                - list_issue_types
+                - search_issue
+                - add_comment
+                - get_comments
+                - transition_issue
+            arguments:
+              type: object
+              description: Tool-specific arguments (see individual tool schemas)
+
+    ToolCallResponse:
+      type: object
+      properties:
+        jsonrpc:
+          type: string
+          enum: ["2.0"]
+        id:
+          type: integer
+        result:
+          type: object
+          properties:
+            content:
+              type: array
+              items:
+                type: object
+                properties:
+                  type:
+                    type: string
+                    enum: ["text"]
+                  text:
+                    type: string
+        error:
+          type: object
+          properties:
+            code:
+              type: integer
+            message:
+              type: string
+
+    # Tool-specific argument schemas
+    GetIssueArguments:
+      type: object
+      required:
+        - issue_key
+      properties:
+        issue_key:
+          type: string
+          description: The unique identifier of the Jira issue
+          example: "TEST-1"
+        fields:
+          type: string
+          description: Comma-separated list of fields to retrieve
+          example: "summary,status,assignee"
+        expand:
+          type: string
+          description: Comma-separated list of fields to expand
+          example: "transitions,changelog,subtasks"
+
+    CreateIssueArguments:
+      type: object
+      required:
+        - project_key
+        - summary
+        - description
+        - issue_type
+      properties:
+        project_key:
+          type: string
+          description: Project identifier where the issue will be created
+          example: "TEST"
+        summary:
+          type: string
+          description: Brief title or headline of the issue
+          example: "Fix login bug"
+        description:
+          type: string
+          description: Detailed explanation of the issue
+          example: "Users cannot log in with special characters in password"
+        issue_type:
+          type: string
+          description: Type of issue to create
+          example: "Bug"
+          enum: ["Bug", "Task", "Subtask", "Story", "Epic"]
+        assignee:
+          type: string
+          description: Username or email of the person to assign the issue to
+          example: "john.doe"
+
+    CreateChildIssueArguments:
+      type: object
+      required:
+        - parent_issue_key
+        - summary
+        - description
+      properties:
+        parent_issue_key:
+          type: string
+          description: The parent issue key to which this child issue will be linked
+          example: "TEST-1"
+        summary:
+          type: string
+          description: Brief title or headline of the child issue
+          example: "Update login form validation"
+        description:
+          type: string
+          description: Detailed explanation of the child issue
+          example: "Add client-side validation for special characters"
+        issue_type:
+          type: string
+          description: Type of child issue to create (defaults to Subtask)
+          example: "Subtask"
+          default: "Subtask"
+        assignee:
+          type: string
+          description: Username or email of the person to assign the issue to
+          example: "jane.doe"
+
+    UpdateIssueArguments:
+      type: object
+      required:
+        - issue_key
+      properties:
+        issue_key:
+          type: string
+          description: The unique identifier of the issue to update
+          example: "TEST-1"
+        summary:
+          type: string
+          description: New title for the issue
+          example: "Updated issue summary"
+        description:
+          type: string
+          description: New description for the issue
+          example: "Updated issue description"
+        assignee:
+          type: string
+          description: Username or email of the person to assign the issue to
+          example: "new.assignee"
+
+    ListIssueTypesArguments:
+      type: object
+      required:
+        - project_key
+      properties:
+        project_key:
+          type: string
+          description: Project identifier to list issue types for
+          example: "TEST"
+
+    SearchIssueArguments:
+      type: object
+      required:
+        - jql
+      properties:
+        jql:
+          type: string
+          description: JQL query string
+          example: 'project = TEST AND status = "In Progress"'
+        fields:
+          type: string
+          description: Comma-separated list of fields to retrieve
+          example: "summary,status,assignee"
+        expand:
+          type: string
+          description: Comma-separated list of fields to expand
+          example: "transitions,changelog,subtasks"
+
+    AddCommentArguments:
+      type: object
+      required:
+        - issue_key
+        - comment
+      properties:
+        issue_key:
+          type: string
+          description: The unique identifier of the Jira issue
+          example: "TEST-1"
+        comment:
+          type: string
+          description: The comment text to add to the issue
+          example: "This issue has been reviewed and approved"
+
+    GetCommentsArguments:
+      type: object
+      required:
+        - issue_key
+      properties:
+        issue_key:
+          type: string
+          description: The unique identifier of the Jira issue
+          example: "TEST-1"
+
+    TransitionIssueArguments:
+      type: object
+      required:
+        - issue_key
+        - transition_id
+      properties:
+        issue_key:
+          type: string
+          description: The issue to transition
+          example: "TEST-1"
+        transition_id:
+          type: string
+          description: Transition ID from available transitions list
+          example: "11"
+        comment:
+          type: string
+          description: Optional comment to add with transition
+          example: "Moving to Done as requirements are met"
+
+  examples:
+    GetIssueExample:
+      summary: Get issue TEST-1
+      value:
+        jsonrpc: "2.0"
+        id: 1
+        method: "tools/call"
+        params:
+          name: "get_issue"
+          arguments:
+            issue_key: "TEST-1"
+            expand: "transitions,changelog"
+
+    CreateIssueExample:
+      summary: Create a new bug
+      value:
+        jsonrpc: "2.0"
+        id: 2
+        method: "tools/call"
+        params:
+          name: "create_issue"
+          arguments:
+            project_key: "TEST"
+            summary: "Login page not loading"
+            description: "The login page fails to load on mobile devices"
+            issue_type: "Bug"
+            assignee: "john.doe"
+
+    SearchIssueExample:
+      summary: Search for open issues
+      value:
+        jsonrpc: "2.0"
+        id: 3
+        method: "tools/call"
+        params:
+          name: "search_issue"
+          arguments:
+            jql: 'project = TEST AND status != "Done"'
+            fields: "summary,status,assignee"

@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 
@@ -165,8 +166,18 @@ func main() {
 		fmt.Println()
 		fmt.Println("🔄 Server starting...")
 
-		httpServer := server.NewStreamableHTTPServer(mcpServer, server.WithEndpointPath("/mcp"))
-		if err := httpServer.Start(fmt.Sprintf(":%s", *httpPort)); err != nil && !isContextCanceled(err) {
+		// Create MCP server with CORS support and stateless mode for easier testing
+		httpServer := server.NewStreamableHTTPServer(mcpServer,
+			server.WithEndpointPath("/mcp"),
+			server.WithStateLess(true))
+
+		// Create custom HTTP server with CORS middleware
+		customServer := &http.Server{
+			Addr:    fmt.Sprintf(":%s", *httpPort),
+			Handler: corsMiddleware(httpServer),
+		}
+
+		if err := customServer.ListenAndServe(); err != nil && !isContextCanceled(err) {
 			log.Fatalf("❌ Server error: %v", err)
 		}
 	} else {
@@ -174,6 +185,26 @@ func main() {
 			log.Fatalf("❌ Server error: %v", err)
 		}
 	}
+}
+
+// corsMiddleware adds CORS headers to allow cross-origin requests from the test UI
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Set CORS headers
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Session-ID")
+		w.Header().Set("Access-Control-Max-Age", "3600")
+
+		// Handle preflight OPTIONS request
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Call the next handler
+		next.ServeHTTP(w, r)
+	})
 }
 
 // IsContextCanceled checks if the error is related to context cancellation
