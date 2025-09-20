@@ -140,7 +140,8 @@
                             { name: 'summary', label: 'Summary', type: 'text', required: true, placeholder: 'Issue summary', description: 'Brief title or headline of the issue' },
                             { name: 'description', label: 'Description', type: 'textarea', required: true, placeholder: 'Detailed description...', description: 'Detailed explanation of the issue' },
                             { name: 'issue_type', label: 'Issue Type', type: 'text', required: true, placeholder: 'Task', description: 'Type of issue to create (Bug, Task, Subtask, Story, Epic)' },
-                            { name: 'assignee', label: 'Assignee', type: 'text', required: false, placeholder: 'username', description: 'Username or email of the person to assign the issue to' }
+                            { name: 'assignee', label: 'Assignee', type: 'text', required: false, placeholder: 'username', description: 'Username or email of the person to assign the issue to' },
+                            { name: 'epic_name', label: 'Epic Name', type: 'text', required: false, placeholder: 'Epic name (for Epic issues)', description: 'Epic name (required when creating Epic issues; defaults to summary if not provided)' }
                         ]
                     },
                     create_child_issue: {

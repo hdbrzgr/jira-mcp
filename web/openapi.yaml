@@ -265,6 +265,10 @@ components:
           type: string
           description: Username or email of the person to assign the issue to
           example: "john.doe"
+        epic_name:
+          type: string
+          description: Epic name (required when creating Epic issues; defaults to summary if not provided)
+          example: "User Authentication Epic"
 
     CreateChildIssueArguments:
       type: object
@@ -403,7 +407,7 @@ components:
             expand: "transitions,changelog"
 
     CreateIssueExample:
-      summary: Create a new bug
+      summary: Create a new epic
       value:
         jsonrpc: "2.0"
         id: 2
@@ -412,10 +416,11 @@ components:
           name: "create_issue"
           arguments:
             project_key: "TEST"
-            summary: "Login page not loading"
-            description: "The login page fails to load on mobile devices"
-            issue_type: "Bug"
+            summary: "User Authentication System"
+            description: "Implement comprehensive user authentication system with login, registration, and password reset features"
+            issue_type: "Epic"
             assignee: "john.doe"
+            epic_name: "User Auth Epic"
 
     SearchIssueExample:
       summary: Search for open issues

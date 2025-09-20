@@ -26,6 +26,7 @@ type CreateIssueInput struct {
 	Description string `json:"description" validate:"required"`
 	IssueType   string `json:"issue_type" validate:"required"`
 	Assignee    string `json:"assignee,omitempty"`
+	EpicName    string `json:"epic_name,omitempty"`
 }
 
 type CreateChildIssueInput struct {
@@ -63,6 +64,7 @@ func RegisterJiraIssueTool(s *server.MCPServer) {
 		mcp.WithString("description", mcp.Required(), mcp.Description("Detailed explanation of the issue")),
 		mcp.WithString("issue_type", mcp.Required(), mcp.Description("Type of issue to create (common types: Bug, Task, Subtask, Story, Epic)")),
 		mcp.WithString("assignee", mcp.Description("Username or email of the person to assign the issue to (optional)")),
+		mcp.WithString("epic_name", mcp.Description("Epic name (required when creating Epic issues; defaults to summary if not provided)")),
 	)
 	s.AddTool(jiraCreateIssueTool, mcp.NewTypedToolHandler(JiraCreateIssueHandler))
 
@@ -139,6 +141,24 @@ func JiraCreateIssueHandler(ctx context.Context, request mcp.CallToolRequest, in
 		}
 	}
 
+	// Handle Epic Name for Epic issue types
+	if strings.ToLower(input.IssueType) == "epic" {
+		epicName := input.EpicName
+		if epicName == "" {
+			// Default to summary if no epic name is provided
+			epicName = input.Summary
+		}
+
+		// Initialize custom fields map if it doesn't exist
+		if issue.Fields.Unknowns == nil {
+			issue.Fields.Unknowns = make(map[string]interface{})
+		}
+
+		// Set Epic Name - using the common custom field ID
+		// Note: This might vary between Jira instances
+		issue.Fields.Unknowns["customfield_10104"] = epicName
+	}
+
 	createdIssue, response, err := client.Issue.CreateWithContext(ctx, issue)
 	if err != nil {
 		body, _ := io.ReadAll(response.Body)
@@ -159,7 +179,7 @@ func JiraCreateChildIssueHandler(ctx context.Context, request mcp.CallToolReques
 	}
 
 	// Default issue type is Sub-task if not specified
-	issueType := "Subtask"
+	issueType := "Sub-task"
 	if input.IssueType != "" {
 		issueType = input.IssueType
 	}
