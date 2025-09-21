@@ -269,6 +269,10 @@ components:
           type: string
           description: Epic name (required when creating Epic issues; defaults to summary if not provided)
           example: "User Authentication Epic"
+        epic_link:
+          type: string
+          description: Epic key to link this issue to
+          example: "EPIC-123"
 
     CreateChildIssueArguments:
       type: object
@@ -320,6 +324,10 @@ components:
           type: string
           description: Username or email of the person to assign the issue to
           example: "new.assignee"
+        epic_link:
+          type: string
+          description: Epic key to link this issue to
+          example: "EPIC-123"
 
     ListIssueTypesArguments:
       type: object
@@ -421,6 +429,7 @@ components:
             issue_type: "Epic"
             assignee: "john.doe"
             epic_name: "User Auth Epic"
+            epic_link: "EPIC-123"
 
     SearchIssueExample:
       summary: Search for open issues

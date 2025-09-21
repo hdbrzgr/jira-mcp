@@ -1,6 +1,7 @@
 package util
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -232,4 +233,34 @@ func FormatJiraIssueCompact(issue *jira.Issue) string {
 	}
 
 	return strings.Join(parts, " | ")
+}
+
+// EpicLinkFieldID represents the discovered Epic Link field ID
+var EpicLinkFieldID string
+
+// DiscoverEpicLinkFieldID discovers the Epic Link custom field ID for classic projects
+// Returns the field ID (e.g., "customfield_10014") or empty string if not found
+func DiscoverEpicLinkFieldID(ctx context.Context, client *jira.Client) (string, error) {
+	// Return cached value if already discovered
+	if EpicLinkFieldID != "" {
+		return EpicLinkFieldID, nil
+	}
+
+	fields, _, err := client.Field.GetListWithContext(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to get field list: %v", err)
+	}
+
+	// Look for Epic Link field
+	for _, field := range fields {
+		if field.Name == "Epic Link" && field.Custom {
+			// Check if it's the Epic Link field by looking at the schema
+			if field.Schema.Custom == "com.pyxis.greenhopper.jira:gh-epic-link" {
+				EpicLinkFieldID = field.ID
+				return EpicLinkFieldID, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("epic link field not found - this may be a next-gen project or the field is not configured")
 }

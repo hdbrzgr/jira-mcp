@@ -26,7 +26,9 @@ type CreateIssueInput struct {
 	Description string `json:"description" validate:"required"`
 	IssueType   string `json:"issue_type" validate:"required"`
 	Assignee    string `json:"assignee,omitempty"`
+	Reporter    string `json:"reporter,omitempty"`
 	EpicName    string `json:"epic_name,omitempty"`
+	EpicLink    string `json:"epic_link,omitempty"`
 }
 
 type CreateChildIssueInput struct {
@@ -35,6 +37,7 @@ type CreateChildIssueInput struct {
 	Description    string `json:"description" validate:"required"`
 	IssueType      string `json:"issue_type,omitempty"`
 	Assignee       string `json:"assignee,omitempty"`
+	Reporter       string `json:"reporter,omitempty"`
 }
 
 type UpdateIssueInput struct {
@@ -42,6 +45,8 @@ type UpdateIssueInput struct {
 	Summary     string `json:"summary,omitempty"`
 	Description string `json:"description,omitempty"`
 	Assignee    string `json:"assignee,omitempty"`
+	Reporter    string `json:"reporter,omitempty"`
+	EpicLink    string `json:"epic_link,omitempty"`
 }
 
 type ListIssueTypesInput struct {
@@ -64,7 +69,9 @@ func RegisterJiraIssueTool(s *server.MCPServer) {
 		mcp.WithString("description", mcp.Required(), mcp.Description("Detailed explanation of the issue")),
 		mcp.WithString("issue_type", mcp.Required(), mcp.Description("Type of issue to create (common types: Bug, Task, Subtask, Story, Epic)")),
 		mcp.WithString("assignee", mcp.Description("Username or email of the person to assign the issue to (optional)")),
+		mcp.WithString("reporter", mcp.Description("Username or email of the person who reported the issue (optional)")),
 		mcp.WithString("epic_name", mcp.Description("Epic name (required when creating Epic issues; defaults to summary if not provided)")),
+		mcp.WithString("epic_link", mcp.Description("Epic key to link this issue to (e.g., EPIC-123)")),
 	)
 	s.AddTool(jiraCreateIssueTool, mcp.NewTypedToolHandler(JiraCreateIssueHandler))
 
@@ -75,6 +82,7 @@ func RegisterJiraIssueTool(s *server.MCPServer) {
 		mcp.WithString("description", mcp.Required(), mcp.Description("Detailed explanation of the child issue")),
 		mcp.WithString("issue_type", mcp.Description("Type of child issue to create (defaults to 'Subtask' if not specified)")),
 		mcp.WithString("assignee", mcp.Description("Username or email of the person to assign the issue to (optional)")),
+		mcp.WithString("reporter", mcp.Description("Username or email of the person who reported the issue (optional)")),
 	)
 	s.AddTool(jiraCreateChildIssueTool, mcp.NewTypedToolHandler(JiraCreateChildIssueHandler))
 
@@ -84,6 +92,8 @@ func RegisterJiraIssueTool(s *server.MCPServer) {
 		mcp.WithString("summary", mcp.Description("New title for the issue (optional)")),
 		mcp.WithString("description", mcp.Description("New description for the issue (optional)")),
 		mcp.WithString("assignee", mcp.Description("Username or email of the person to assign the issue to (optional)")),
+		mcp.WithString("reporter", mcp.Description("Username or email of the person who reported the issue (optional)")),
+		mcp.WithString("epic_link", mcp.Description("Epic key to link this issue to (e.g., EPIC-123)")),
 	)
 	s.AddTool(jiraUpdateIssueTool, mcp.NewTypedToolHandler(JiraUpdateIssueHandler))
 
@@ -141,6 +151,13 @@ func JiraCreateIssueHandler(ctx context.Context, request mcp.CallToolRequest, in
 		}
 	}
 
+	// Add reporter if provided
+	if input.Reporter != "" {
+		issue.Fields.Reporter = &jira.User{
+			Name: input.Reporter,
+		}
+	}
+
 	// Handle Epic Name for Epic issue types
 	if strings.ToLower(input.IssueType) == "epic" {
 		epicName := input.EpicName
@@ -157,6 +174,21 @@ func JiraCreateIssueHandler(ctx context.Context, request mcp.CallToolRequest, in
 		// Set Epic Name - using the common custom field ID
 		// Note: This might vary between Jira instances
 		issue.Fields.Unknowns["customfield_10104"] = epicName
+	}
+
+	// Handle Epic Link for any issue type
+	if input.EpicLink != "" {
+		// Try to discover Epic Link field ID for classic projects
+		epicLinkFieldID, err := util.DiscoverEpicLinkFieldID(ctx, client)
+		if err != nil {
+			return nil, fmt.Errorf("failed to discover epic link field ID: %v", err)
+		}
+		// Use the discovered custom field ID for classic projects
+		if issue.Fields.Unknowns == nil {
+			issue.Fields.Unknowns = make(map[string]interface{})
+		}
+		issue.Fields.Unknowns[epicLinkFieldID] = input.EpicLink
+
 	}
 
 	createdIssue, response, err := client.Issue.CreateWithContext(ctx, issue)
@@ -207,6 +239,13 @@ func JiraCreateChildIssueHandler(ctx context.Context, request mcp.CallToolReques
 		}
 	}
 
+	// Add reporter if provided
+	if input.Reporter != "" {
+		issue.Fields.Reporter = &jira.User{
+			Name: input.Reporter,
+		}
+	}
+
 	createdIssue, response, err := client.Issue.CreateWithContext(ctx, issue)
 	if err != nil {
 		body, _ := io.ReadAll(response.Body)
@@ -242,6 +281,27 @@ func JiraUpdateIssueHandler(ctx context.Context, request mcp.CallToolRequest, in
 		issue.Fields.Assignee = &jira.User{
 			Name: input.Assignee,
 		}
+	}
+
+	if input.Reporter != "" {
+		issue.Fields.Reporter = &jira.User{
+			Name: input.Reporter,
+		}
+	}
+
+	// Handle Epic Link
+	if input.EpicLink != "" {
+		// Try to discover Epic Link field ID for classic projects
+		epicLinkFieldID, err := util.DiscoverEpicLinkFieldID(ctx, client)
+		if err != nil {
+			return nil, fmt.Errorf("failed to discover epic link field ID: %v", err)
+		}
+		// Use the discovered custom field ID for classic projects
+		if issue.Fields.Unknowns == nil {
+			issue.Fields.Unknowns = make(map[string]interface{})
+		}
+		issue.Fields.Unknowns[epicLinkFieldID] = input.EpicLink
+
 	}
 
 	_, response, err := client.Issue.UpdateWithContext(ctx, issue)

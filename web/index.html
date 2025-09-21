@@ -3,109 +3,446 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jira MCP Test Interface</title>
+    <title>Jira MCP Interface</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         [x-cloak] { display: none !important; }
+        
+        /* Jira-style color scheme */
+        :root {
+            --jira-blue: #0052cc;
+            --jira-blue-hover: #0065ff;
+            --jira-blue-light: #deebff;
+            --jira-gray-50: #f4f5f7;
+            --jira-gray-100: #ebecf0;
+            --jira-gray-200: #dfe1e6;
+            --jira-gray-300: #c1c7d0;
+            --jira-gray-400: #97a0af;
+            --jira-gray-500: #6b778c;
+            --jira-gray-600: #42526e;
+            --jira-gray-700: #253858;
+            --jira-gray-800: #172b4d;
+            --jira-green: #36b37e;
+            --jira-yellow: #ffab00;
+            --jira-red: #ff5630;
+            --jira-purple: #6554c0;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--jira-gray-50);
+        }
+        
+        .jira-header {
+            background: linear-gradient(135deg, var(--jira-blue) 0%, #0065ff 100%);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .jira-sidebar {
+            background: white;
+            border-right: 1px solid var(--jira-gray-200);
+            box-shadow: 2px 0 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        .jira-card {
+            background: white;
+            border: 1px solid var(--jira-gray-200);
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        
+        .jira-button {
+            background: var(--jira-blue);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        
+        .jira-button:hover {
+            background: var(--jira-blue-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0, 82, 204, 0.3);
+        }
+        
+        .jira-button:disabled {
+            background: var(--jira-gray-300);
+            color: var(--jira-gray-500);
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .jira-input {
+            border: 1px solid var(--jira-gray-300);
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            color: #000000;
+        }
+        
+        .jira-input:focus {
+            border-color: var(--jira-blue);
+            box-shadow: 0 0 0 3px var(--jira-blue-light);
+            outline: none;
+            color: #000000;
+        }
+        
+        .jira-input::placeholder {
+            color: var(--jira-gray-500);
+        }
+        
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+        
+        .status-todo { background: var(--jira-gray-100); color: var(--jira-gray-600); }
+        .status-in-progress { background: var(--jira-blue-light); color: var(--jira-blue); }
+        .status-done { background: #e3fcef; color: var(--jira-green); }
+        .status-closed { background: #ffebe6; color: var(--jira-red); }
+        
+        .priority-high { color: var(--jira-red); }
+        .priority-medium { color: var(--jira-yellow); }
+        .priority-low { color: var(--jira-gray-500); }
+        
+        .tool-card {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .tool-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        .tool-card.selected {
+            border-color: var(--jira-blue);
+            box-shadow: 0 0 0 2px var(--jira-blue-light);
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .jira-sidebar {
+                position: fixed;
+                left: -100%;
+                top: 0;
+                height: 100vh;
+                z-index: 50;
+                transition: left 0.3s ease;
+            }
+            
+            .jira-sidebar.open {
+                left: 0;
+            }
+            
+            .mobile-menu-btn {
+                display: block;
+            }
+        }
+        
+        @media (min-width: 769px) {
+            .mobile-menu-btn {
+                display: none;
+            }
+        }
+        
+        .mobile-menu-btn {
+            display: none;
+        }
+        
+        /* Loading animation */
+        .loading-spinner {
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Issue card styles */
+        .issue-card {
+            background: white;
+            border: 1px solid var(--jira-gray-200);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 8px;
+            transition: all 0.2s ease;
+        }
+        
+        .issue-card:hover {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            transform: translateY(-1px);
+        }
+        
+        .issue-key {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--jira-blue);
+        }
+        
+        .issue-summary {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--jira-gray-800);
+            margin: 4px 0;
+        }
+        
+        .issue-meta {
+            font-size: 12px;
+            color: var(--jira-gray-500);
+        }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen">
-    <div x-data="mcpTester()" x-cloak class="container mx-auto px-4 py-8">
-        <!-- Header -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-            <h1 class="text-3xl font-bold text-gray-800 mb-4">Jira MCP Test Interface</h1>
-            <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-4">
-                    <label class="text-sm font-medium text-gray-700">Server URL:</label>
-                    <input x-model="serverUrl" type="text" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="http://localhost:8080/mcp">
-                    <button @click="initializeSession()" :disabled="loading" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50">
-                        <span x-show="!loading">Initialize Session</span>
-                        <span x-show="loading">Connecting...</span>
-                    </button>
-                </div>
-                <div class="text-sm">
-                    <span class="font-medium">Session Status:</span>
-                    <span :class="sessionId ? 'text-green-600' : 'text-red-600'" x-text="sessionId ? 'Connected' : 'Not Connected'"></span>
-                </div>
-            </div>
-            <div x-show="sessionId" class="mt-2 text-xs text-gray-500">
-                Session ID: <span x-text="sessionId"></span>
-            </div>
-        </div>
-
-        <!-- Tool Selector -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-            <h2 class="text-xl font-semibold text-gray-800 mb-4">Select Tool</h2>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <template x-for="(tool, key) in tools" :key="key">
-                    <button @click="selectedTool = key" 
-                            :class="selectedTool === key ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
-                            class="px-4 py-3 rounded-md font-medium transition-colors">
-                        <div x-text="tool.name"></div>
-                        <div class="text-xs opacity-75" x-text="tool.category"></div>
-                    </button>
-                </template>
-            </div>
-        </div>
-
-        <!-- Tool Form -->
-        <div x-show="selectedTool" class="bg-white rounded-lg shadow-md p-6 mb-8">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-semibold text-gray-800" x-text="tools[selectedTool]?.name"></h2>
-                <button @click="executeTool()" :disabled="!sessionId || loading" class="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50">
-                    <span x-show="!loading">Execute</span>
-                    <span x-show="loading">Executing...</span>
-                </button>
-            </div>
-            
-            <p class="text-gray-600 mb-6" x-text="tools[selectedTool]?.description"></p>
-            
-            <form @submit.prevent="executeTool()" class="space-y-4">
-                <template x-for="param in tools[selectedTool]?.parameters || []" :key="param.name">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">
-                            <span x-text="param.label"></span>
-                            <span x-show="param.required" class="text-red-500">*</span>
-                        </label>
-                        <template x-if="param.type === 'textarea'">
-                            <textarea x-model="formData[param.name]" 
-                                     :placeholder="param.placeholder"
-                                     :required="param.required"
-                                     rows="3"
-                                     class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
-                        </template>
-                        <template x-if="param.type === 'text'">
-                            <input x-model="formData[param.name]" 
-                                   type="text"
-                                   :placeholder="param.placeholder"
-                                   :required="param.required"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        </template>
-                        <p class="text-xs text-gray-500 mt-1" x-text="param.description"></p>
+<body class="min-h-screen">
+    <div x-data="mcpTester()" x-cloak class="min-h-screen flex flex-col">
+        <!-- Jira-style Header -->
+        <header class="jira-header text-white">
+            <div class="px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <button @click="sidebarOpen = !sidebarOpen" class="mobile-menu-btn p-2 hover:bg-white hover:bg-opacity-20 rounded-md">
+                            <i class="fas fa-bars text-lg"></i>
+                        </button>
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-tasks text-2xl"></i>
+                            <h1 class="text-xl font-semibold">Jira MCP Interface</h1>
+                        </div>
+                        <div class="hidden md:flex items-center space-x-4 text-sm">
+                            <span class="px-3 py-1 bg-white bg-opacity-20 rounded-full">Issues</span>
+                            <span class="px-3 py-1 hover:bg-white hover:bg-opacity-20 rounded-full cursor-pointer">Boards</span>
+                            <span class="px-3 py-1 hover:bg-white hover:bg-opacity-20 rounded-full cursor-pointer">Projects</span>
+                        </div>
                     </div>
-                </template>
-            </form>
-        </div>
+                    <div class="flex items-center space-x-2 md:space-x-4">
+                        <div class="hidden md:flex items-center space-x-2">
+                            <label class="text-sm font-medium">MCP Server:</label>
+                            <input x-model="serverUrl" type="text" class="jira-input px-3 py-1 text-sm w-48" placeholder="http://localhost:8080/mcp" title="Default: http://localhost:8080/mcp">
+                        </div>
+                        <button @click="initializeSession()" :disabled="loading" class="jira-button px-3 py-2 text-sm">
+                            <i x-show="!loading" class="fas fa-plug mr-1"></i>
+                            <i x-show="loading" class="fas fa-spinner loading-spinner mr-1"></i>
+                            <span class="hidden sm:inline" x-show="!loading">Connect</span>
+                            <span class="hidden sm:inline" x-show="loading">Connecting...</span>
+                        </button>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-2 h-2 rounded-full" :class="sessionId ? 'bg-green-400' : 'bg-red-400'"></div>
+                            <span class="text-sm hidden sm:inline" x-text="sessionId ? 'Connected to MCP' : 'Not Connected'"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
 
-        <!-- Results -->
-        <div x-show="result || error" class="bg-white rounded-lg shadow-md p-6">
-            <h3 class="text-lg font-semibold text-gray-800 mb-4">Result</h3>
-            
-            <!-- Success Result -->
-            <div x-show="result && !error" class="bg-green-50 border border-green-200 rounded-md p-4">
-                <pre class="text-sm text-green-800 whitespace-pre-wrap" x-text="result"></pre>
-            </div>
-            
-            <!-- Error Result -->
-            <div x-show="error" class="bg-red-50 border border-red-200 rounded-md p-4">
-                <pre class="text-sm text-red-800 whitespace-pre-wrap" x-text="error"></pre>
-            </div>
-            
-            <!-- Clear Button -->
-            <button @click="clearResults()" class="mt-4 px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">
-                Clear Results
-            </button>
+        <!-- Mobile Overlay -->
+        <div x-show="sidebarOpen" @click="sidebarOpen = false" class="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"></div>
+
+        <!-- Main Content Area -->
+        <div class="flex flex-1">
+            <!-- Sidebar -->
+            <aside class="jira-sidebar w-64 min-h-screen p-6" :class="sidebarOpen ? 'open' : ''">
+                <div class="space-y-6">
+                    <div>
+                        <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Tools</h3>
+                        <div class="space-y-2">
+                            <button @click="selectTool('get_issue')" 
+                                    :class="selectedTool === 'get_issue' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'text-gray-600 hover:bg-gray-50'"
+                                    class="w-full text-left px-3 py-2 rounded-md border text-sm font-medium transition-colors">
+                                <i class="fas fa-search mr-2"></i>Get Issue
+                            </button>
+                            <button @click="selectTool('create_issue')" 
+                                    :class="selectedTool === 'create_issue' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'text-gray-600 hover:bg-gray-50'"
+                                    class="w-full text-left px-3 py-2 rounded-md border text-sm font-medium transition-colors">
+                                <i class="fas fa-plus mr-2"></i>Create Issue
+                            </button>
+                            <button @click="selectTool('create_child_issue')" 
+                                    :class="selectedTool === 'create_child_issue' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'text-gray-600 hover:bg-gray-50'"
+                                    class="w-full text-left px-3 py-2 rounded-md border text-sm font-medium transition-colors">
+                                <i class="fas fa-plus-circle mr-2"></i>Create Child Issue
+                            </button>
+                            <button @click="selectTool('update_issue')" 
+                                    :class="selectedTool === 'update_issue' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'text-gray-600 hover:bg-gray-50'"
+                                    class="w-full text-left px-3 py-2 rounded-md border text-sm font-medium transition-colors">
+                                <i class="fas fa-edit mr-2"></i>Update Issue
+                            </button>
+                            <button @click="selectTool('list_issue_types')" 
+                                    :class="selectedTool === 'list_issue_types' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'text-gray-600 hover:bg-gray-50'"
+                                    class="w-full text-left px-3 py-2 rounded-md border text-sm font-medium transition-colors">
+                                <i class="fas fa-list mr-2"></i>List Issue Types
+                            </button>
+                            <button @click="selectTool('search_issue')" 
+                                    :class="selectedTool === 'search_issue' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'text-gray-600 hover:bg-gray-50'"
+                                    class="w-full text-left px-3 py-2 rounded-md border text-sm font-medium transition-colors">
+                                <i class="fas fa-filter mr-2"></i>Search Issues
+                            </button>
+                            <button @click="selectTool('add_comment')" 
+                                    :class="selectedTool === 'add_comment' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'text-gray-600 hover:bg-gray-50'"
+                                    class="w-full text-left px-3 py-2 rounded-md border text-sm font-medium transition-colors">
+                                <i class="fas fa-comment mr-2"></i>Add Comment
+                            </button>
+                            <button @click="selectTool('get_comments')" 
+                                    :class="selectedTool === 'get_comments' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'text-gray-600 hover:bg-gray-50'"
+                                    class="w-full text-left px-3 py-2 rounded-md border text-sm font-medium transition-colors">
+                                <i class="fas fa-comments mr-2"></i>Get Comments
+                            </button>
+                            <button @click="selectTool('transition_issue')" 
+                                    :class="selectedTool === 'transition_issue' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'text-gray-600 hover:bg-gray-50'"
+                                    class="w-full text-left px-3 py-2 rounded-md border text-sm font-medium transition-colors">
+                                <i class="fas fa-arrow-right mr-2"></i>Transition Issue
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h3 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Quick Actions</h3>
+                        <div class="space-y-2">
+                            <button @click="clearResults()" class="w-full text-left px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-md text-sm">
+                                <i class="fas fa-trash mr-2"></i>Clear Results
+                            </button>
+                            <button @click="selectTool(null)" class="w-full text-left px-3 py-2 text-gray-600 hover:bg-gray-50 rounded-md text-sm">
+                                <i class="fas fa-times mr-2"></i>Reset Form
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Content -->
+            <main class="flex-1 p-4 md:p-6">
+                <!-- Mobile Server Input -->
+                <div class="md:hidden mb-4">
+                    <div class="jira-card p-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">MCP Server URL</label>
+                        <div class="flex space-x-2">
+                            <input x-model="serverUrl" type="text" class="jira-input flex-1 px-3 py-2 text-sm" placeholder="http://localhost:8080/mcp" title="Default: http://localhost:8080/mcp">
+                            <button @click="initializeSession()" :disabled="loading" class="jira-button px-4 py-2 text-sm">
+                                <i x-show="!loading" class="fas fa-plug"></i>
+                                <i x-show="loading" class="fas fa-spinner loading-spinner"></i>
+                            </button>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">Default: http://localhost:8080/mcp</p>
+                    </div>
+                </div>
+
+                <!-- Welcome Message -->
+                <div x-show="!selectedTool" class="jira-card p-8 text-center">
+                    <div class="mb-6">
+                        <i class="fas fa-tasks text-6xl text-blue-500 mb-4"></i>
+                        <h2 class="text-3xl font-bold text-gray-800 mb-2">Welcome to Jira MCP Interface</h2>
+                        <p class="text-gray-600 text-lg mb-4">Select a tool from the sidebar to get started with Jira operations</p>
+                        
+                        <!-- Connection Status -->
+                        <div class="inline-flex items-center px-4 py-2 rounded-lg" :class="sessionId ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'">
+                            <i :class="sessionId ? 'fas fa-check-circle' : 'fas fa-exclamation-triangle'" class="mr-2"></i>
+                            <span x-show="!sessionId">Make sure your MCP server is running on http://localhost:8080</span>
+                            <span x-show="sessionId">Connected to MCP server successfully!</span>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
+                        <div class="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+                            <i class="fas fa-search text-2xl text-blue-500 mb-2"></i>
+                            <h3 class="font-semibold text-gray-800">Search Issues</h3>
+                            <p class="text-sm text-gray-600">Find and retrieve Jira issues using JQL queries</p>
+                        </div>
+                        <div class="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+                            <i class="fas fa-plus text-2xl text-green-500 mb-2"></i>
+                            <h3 class="font-semibold text-gray-800">Create Issues</h3>
+                            <p class="text-sm text-gray-600">Create new issues, epics, and subtasks</p>
+                        </div>
+                        <div class="p-4 border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+                            <i class="fas fa-comments text-2xl text-purple-500 mb-2"></i>
+                            <h3 class="font-semibold text-gray-800">Manage Comments</h3>
+                            <p class="text-sm text-gray-600">Add and view comments on issues</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tool Form -->
+                <div x-show="selectedTool" class="jira-card p-6 mb-6">
+                    <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 space-y-4 md:space-y-0">
+                        <div>
+                            <h2 class="text-2xl font-semibold text-gray-800" x-text="tools[selectedTool]?.name"></h2>
+                            <p class="text-gray-600 mt-1" x-text="tools[selectedTool]?.description"></p>
+                        </div>
+                        <button @click="executeTool()" :disabled="!sessionId || loading" class="jira-button px-6 py-3 text-sm font-medium w-full md:w-auto">
+                            <i x-show="!loading" class="fas fa-play mr-2"></i>
+                            <i x-show="loading" class="fas fa-spinner loading-spinner mr-2"></i>
+                            <span x-show="!loading">Execute</span>
+                            <span x-show="loading">Executing...</span>
+                        </button>
+                    </div>
+                    
+                    <form @submit.prevent="executeTool()" class="space-y-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <template x-for="param in tools[selectedTool]?.parameters || []" :key="param.name">
+                                <div class="space-y-2">
+                                    <label class="block text-sm font-semibold text-gray-700">
+                                        <span x-text="param.label"></span>
+                                        <span x-show="param.required" class="text-red-500 ml-1">*</span>
+                                    </label>
+                                    <template x-if="param.type === 'textarea'">
+                                        <textarea x-model="formData[param.name]" 
+                                                 :placeholder="param.placeholder"
+                                                 :required="param.required"
+                                                 rows="4"
+                                                 class="jira-input w-full px-3 py-2 text-sm"></textarea>
+                                    </template>
+                                    <template x-if="param.type === 'text'">
+                                        <input x-model="formData[param.name]" 
+                                               type="text"
+                                               :placeholder="param.placeholder"
+                                               :required="param.required"
+                                               class="jira-input w-full px-3 py-2 text-sm">
+                                    </template>
+                                    <p class="text-xs text-gray-500" x-text="param.description"></p>
+                                </div>
+                            </template>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Results -->
+                <div x-show="result || error" class="jira-card p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-800 flex items-center">
+                            <i class="fas fa-clipboard-list mr-2"></i>
+                            Results
+                        </h3>
+                        <button @click="clearResults()" class="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors">
+                            <i class="fas fa-times mr-1"></i>Clear
+                        </button>
+                    </div>
+                    
+                    <!-- Success Result -->
+                    <div x-show="result && !error" class="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div class="flex items-center mb-2">
+                            <i class="fas fa-check-circle text-green-600 mr-2"></i>
+                            <span class="text-sm font-medium text-green-800">Success</span>
+                        </div>
+                        <div class="bg-white rounded border p-3 mt-2">
+                            <pre class="text-sm text-gray-800 whitespace-pre-wrap font-mono" x-text="result"></pre>
+                        </div>
+                    </div>
+                    
+                    <!-- Error Result -->
+                    <div x-show="error" class="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <div class="flex items-center mb-2">
+                            <i class="fas fa-exclamation-circle text-red-600 mr-2"></i>
+                            <span class="text-sm font-medium text-red-800">Error</span>
+                        </div>
+                        <div class="bg-white rounded border p-3 mt-2">
+                            <pre class="text-sm text-red-800 whitespace-pre-wrap font-mono" x-text="error"></pre>
+                        </div>
+                    </div>
+                </div>
+            </main>
         </div>
     </div>
 
@@ -119,6 +456,7 @@
                 result: null,
                 error: null,
                 loading: false,
+                sidebarOpen: false,
                 
                 tools: {
                     get_issue: {
@@ -141,7 +479,9 @@
                             { name: 'description', label: 'Description', type: 'textarea', required: true, placeholder: 'Detailed description...', description: 'Detailed explanation of the issue' },
                             { name: 'issue_type', label: 'Issue Type', type: 'text', required: true, placeholder: 'Task', description: 'Type of issue to create (Bug, Task, Subtask, Story, Epic)' },
                             { name: 'assignee', label: 'Assignee', type: 'text', required: false, placeholder: 'username', description: 'Username or email of the person to assign the issue to' },
-                            { name: 'epic_name', label: 'Epic Name', type: 'text', required: false, placeholder: 'Epic name (for Epic issues)', description: 'Epic name (required when creating Epic issues; defaults to summary if not provided)' }
+                            { name: 'reporter', label: 'Reporter', type: 'text', required: false, placeholder: 'username', description: 'Username or email of the person who reported the issue' },
+                            { name: 'epic_name', label: 'Epic Name', type: 'text', required: false, placeholder: 'Epic name (for Epic issues)', description: 'Epic name (required when creating Epic issues; defaults to summary if not provided)' },
+                            { name: 'epic_link', label: 'Epic Link', type: 'text', required: false, placeholder: 'EPIC-123', description: 'Epic key to link this issue to (e.g., EPIC-123)' }
                         ]
                     },
                     create_child_issue: {
@@ -153,7 +493,8 @@
                             { name: 'summary', label: 'Summary', type: 'text', required: true, placeholder: 'Child issue summary', description: 'Brief title or headline of the child issue' },
                             { name: 'description', label: 'Description', type: 'textarea', required: true, placeholder: 'Detailed description...', description: 'Detailed explanation of the child issue' },
                             { name: 'issue_type', label: 'Issue Type', type: 'text', required: false, placeholder: 'Subtask', description: 'Type of child issue to create (defaults to Subtask)' },
-                            { name: 'assignee', label: 'Assignee', type: 'text', required: false, placeholder: 'username', description: 'Username or email of the person to assign the issue to' }
+                            { name: 'assignee', label: 'Assignee', type: 'text', required: false, placeholder: 'username', description: 'Username or email of the person to assign the issue to' },
+                            { name: 'reporter', label: 'Reporter', type: 'text', required: false, placeholder: 'username', description: 'Username or email of the person who reported the issue' }
                         ]
                     },
                     update_issue: {
@@ -164,7 +505,9 @@
                             { name: 'issue_key', label: 'Issue Key', type: 'text', required: true, placeholder: 'TEST-1', description: 'The unique identifier of the issue to update' },
                             { name: 'summary', label: 'Summary', type: 'text', required: false, placeholder: 'New summary', description: 'New title for the issue (optional)' },
                             { name: 'description', label: 'Description', type: 'textarea', required: false, placeholder: 'New description...', description: 'New description for the issue (optional)' },
-                            { name: 'assignee', label: 'Assignee', type: 'text', required: false, placeholder: 'username', description: 'Username or email of the person to assign the issue to (optional)' }
+                            { name: 'assignee', label: 'Assignee', type: 'text', required: false, placeholder: 'username', description: 'Username or email of the person to assign the issue to (optional)' },
+                            { name: 'reporter', label: 'Reporter', type: 'text', required: false, placeholder: 'username', description: 'Username or email of the person who reported the issue (optional)' },
+                            { name: 'epic_link', label: 'Epic Link', type: 'text', required: false, placeholder: 'EPIC-123', description: 'Epic key to link this issue to (e.g., EPIC-123)' }
                         ]
                     },
                     list_issue_types: {
@@ -313,12 +656,26 @@
                     this.error = null;
                 },
 
-                // Watch for tool changes to reset form data
-                init() {
+                selectTool(toolName) {
+                    this.selectedTool = toolName;
+                    this.sidebarOpen = false; // Close sidebar on mobile
+                    this.formData = {};
+                    this.clearResults();
+                },
+
+                // Auto-connect on page load
+                async init() {
                     this.$watch('selectedTool', () => {
                         this.formData = {};
                         this.clearResults();
                     });
+                    
+                    // Auto-connect to local server on page load
+                    if (this.serverUrl === 'http://localhost:8080/mcp') {
+                        setTimeout(() => {
+                            this.initializeSession();
+                        }, 1000);
+                    }
                 }
             }
         }
