@@ -25,7 +25,7 @@ func RegisterJiraCommentTools(s *server.MCPServer) {
 	jiraAddCommentTool := mcp.NewTool("add_comment",
 		mcp.WithDescription("Add a comment to a Jira issue"),
 		mcp.WithString("issue_key", mcp.Required(), mcp.Description("The unique identifier of the Jira issue (e.g., KP-2, PROJ-123)")),
-		mcp.WithString("comment", mcp.Required(), mcp.Description("The comment text to add to the issue")),
+		mcp.WithString("comment", mcp.Required(), mcp.Description("The comment text to add to the issue. Supports Wiki Markup formatting")),
 	)
 	s.AddTool(jiraAddCommentTool, mcp.NewTypedToolHandler(JiraAddCommentHandler))
 
